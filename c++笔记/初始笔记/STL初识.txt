@@ -1,0 +1,23 @@
+STL standard template libaray - 标准模板库：是C++标准库的重要组成部分
+vector/list/sort... -> STL
+istream/ostream... -> 标准库3.++
+
+STL -- 最开始是惠普实验室完成的原始版本 HP
+	P.J.Plauger 基础HP 被Windows Visual c++采用
+	....
+	SGI版本  lnc公司开发，基础HP、被GCC(Linux)采用
+
+
+STL六大组件：
+容器（数据结构（stack、queue不是容器））：
+算法（常见的算法）：
+仿函数
+迭代器
+配接器
+空间配置器（内存池） --allocator -- 为容器用的
+
+
+STL三层境界：
+1.熟悉使用STL
+2.了解底层
+3.能够扩充STL

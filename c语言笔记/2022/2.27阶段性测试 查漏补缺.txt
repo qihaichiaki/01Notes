@@ -1,0 +1,97 @@
+k *= i + j
+注意这个是先算➕
+*=的优先级比+低一级的，所以不是k*i+j哦。
+注意，c语言是没有输入输出函数的，不是本身的，printf，scanf是库函数里面的，是独立于c语言之外的。
+
+
+1.求两个数的最小公倍数 
+5 7      35
+while
+  一个数包含两个相乘，这个最小的数是谁
+{1}
+从最大的数往前加，加到能满足情况为止。
+m =a*b
+（2）
+既然是两个数相乘，那么从最小数开始乘1乘到满足a*i%j=0即可。
+/*int main()
+{
+	int a = 0;
+	int b = 0;
+	scanf("%d %d", &a, &b);
+	int c = a >= b ? a : b;
+	while (1)
+	{
+		if (c == a * b)
+		{
+			break;
+		}
+		c++;
+	}
+	printf("%d\n", c);
+	return 0;
+}*/
+2
+/*int main()
+{
+	int a = 0;
+	int b = 0;
+	scanf("%d %d", &a, &b);
+	int i = 1;
+	while (1)
+	{
+		if (a * i % b == 0)
+			break;
+		i++;
+	}
+	printf("%d\n", a * i);
+	return 0;
+}*/
+
+
+2.字符串逆置
+比如 I like her.
+程序会替换成 her. like I
+
+1.整体字符串逆序
+2.对字符中的每个单词进行逆序。
+
+*scanf读到空格，后面就不读了。
+要读取空格的话，就使用gets();
+但是非要用scanf的话也可以
+scanf("%[^\n]
+
+void resvers(char* l, char* r)
+{
+	while(r > l)
+	{
+		char temp = *l;
+		*l = *r;
+		*r = temp;
+		l++;
+		r--;
+	}
+}
+
+int main()
+{
+	char a[101] = { 0 };
+	gets(a);
+	int lon = strlen(a);
+	char* l = a;
+	char* r = a + lon - 1;
+	resvers(l, r);
+	
+	char* le = a;
+	char* ri = a;
+	while (*ri != '\0')
+	{
+		while (*ri != ' ' && *ri != '\0')
+			ri++;
+		resvers(le, ri - 1);
+		le = ri + 1;
+		if (*ri != '\0')
+		     ri++;
+	}
+	printf("%s\n", a);
+	return 0;
+}

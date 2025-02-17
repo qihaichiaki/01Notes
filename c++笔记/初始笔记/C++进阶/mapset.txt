@@ -1,0 +1,178 @@
+前面都是序列式容器
+现在学习关联式容器：
+
+-- set --
+底层实现：二叉搜索树 ----
+set ：排序 + 去重（排序间接完成）
+
+删除：erase：
+	第一个传值
+	第二个传iterator （find没有找到会返回end）此时删会出现问题。
+ 
+count  -- 在返回1 不在返回0（数）为了保持兼容
+
+
+lower_bound(val1)  upper_bound(val2)
+	找到set容器中大于等于val1值的位置 以及大于val2值的位置。（erase里面执行的一般为左闭右开区间）
+
+equal_range()
+
+......
+
+--multiset--区别于set就是允许键值冗余
+也就是可以存相同的数据。
+count -- 返回个数
+find -- 存在多个值，返回哪个呢？ -- 中序的第一个
+erase -- 删除有相同值的所有值 给迭代器位置当然只删除一个
+
+
+
+--- map - key、val
+class Key 、T  	class Compare = less<Key> class Alloc = allocator<pair<const Key, T>> class map;
+插入的是一个结构体 pair：	默认按照key排序了
+--两个值 	
+map<string, string> dict;
+//pair<string, string> kv1("sort", "排序");
+//dict.insert(kv1);
+上面太麻烦了，使用匿名对象：
+dict.insert(pair<string, string>("sort", "排序"));  // 类型太长也可以写成typedef的形式
+
+不允许键值冗余
+make_pair -- 可以自动推导类型 （一般定义成inline） 这样就不用传string
+（头文件 -- 被间接包了）
+
+注意map使用迭代器，*it 返回的是一个pair -- 有两个值一个first，second
+
+[] 重载 -- （和以前的随机访问不同之前源自于数组）
+ -- 给key  [key] 返回value的引用;  
+	注意：--非常复杂的结构，不存在就插入
+	1.map中有这个key,返回value的引用。（查找、修改value）
+	2.map中没有这个key,会插入一个新元素 -- pair(key, V())  -- 会使用一个匿名对象 在返回value的引用
+	功能：插入 查找&修改    插入&修改
+	at在返回引用，不在抛异常
+	
+
+	简单分析一下[]的底层实现：
+	与insert底层实现有关：	pair<K, V> val;
+		pair<iterator, bool>insert(pair) 没有返回true，有false。 frist被设置为迭代器
+		1，key已经在map中，返回pair(key_iterator, false);  
+		2,key不在map中，返回pair(new_key_iterator, true);
+		
+
+		[](const K& key):
+			pair<iterator, bool> ret = insert(make_piar(key, V()));  // 此时有两种可能性 key存在插入失败，key不存在插入成功。迭代器无论插入成功还是失败都是返回key对应的那个iterator；
+			return ret.frist->second;
+			// 简化： return (*(this->insert(make_pair(key, V())).frist)).second;
+
+		不这样处理的话，树就有可能走两遍（不存在的时候，先找，在插入），用现在这个insert只需要走一次。（没有突飞猛进）
+		
+
+	multimap--运行键值冗余？
+	大致一致，没有[]重载
+		只看key，不管有没有，都会插入，不会存在插入失败的情况。
+		
+	stable_sort -- 
+
+
+
+
+集合之间 求交集：
+	1 3 5 8           1.小的就++，2.相同也就是交集就同时++
+	3 6 5
+	求差集：1.小的就是差集++。2.相等就同时++
+
+
+
+底层封装实现:
+前提：红黑树&&AVL树
+
+	正常思维：map - key value set - key  -- 分别进行封装
+	STL--不希望出现冗余的代码-实现复用
+
+
+set 传--key key
+map传--key pair
+	--用一棵泛型的rbtree，通过不同的实例化参数，实现出map和set
+
+
+	这样在原本实现红黑树的情况下，将原本的pair数据改为泛型。
+	RBTree<K, pair<K, V>> _t;  map
+	RBTree<K, K> _t;  set
+	
+
+	template<class K, class T>
+	RBTree
+	{RBTreeNode<T> Node;}
+	但是上述在进行pair比较时会存在问题：
+	需要增加一个模板类型-class KeyOfT
+
+	对于set、map只需在内部封装一个类型，取pair和key，返回key和first即可。均返回const K&  这样两个模板参数就统一了。重载()
+	RBTree<K, pair<K, V>, KeyOfT> _t;  map
+	RBTree<K, K, KeyOfT> _t;  set	
+	
+
+	map-set迭代器--红黑树的迭代器：（参考链表）：
+
+	--缩减：（红黑树无头结点）
+	begin - 返回中序的第一个
+	end - 返回最后一个结点的下一个
+	
+		左闭右开
+	class T, Ref, Ptr  // 控制普通和const
+	__RBTreeIterator
+	RBTreeNode<T> Node;
+
+	构造传入node
+	Ref operator*()
+	{
+		data
+	}
+	Ptr ->
+	 &data
+	
+	bool !=	const
+	bool ==	const
+	
+	//重点***
+	Self& operator++()  // 默认前置++
+	{
+		
+	}
+	// 左子树 - 根 - 右子树
+	// 在当前结点--表示左边都访问完了。
+	// 右子树不为空，++就是找二叉树右子树的中序第一个（最左结点）
+	// 右子树为空， 是直接访问父亲吗？注意，这里需要进行判断。因为存在其父节点已经被访问过了。
+	***所以需要找孩子不是父亲右的那个祖先。往上走 - （如果此时往上走走到空即可）
+	// 
+
+	Self& operator--()
+	{
+		//--就是和++反着走
+		// 当前结点应该是右边都访问完了。不关注右树
+		// 如果左子树不为空，访问左树的最右结点、
+		// 左为空，访问孩子不是父亲的左的那个祖先。
+	}
+	
+	insert返回值返回pair - iterator、bool
+	
+	
+RBTree：
+	begin:
+	找最左结点：构造一个迭代器返回
+
+	end：
+	找最右结点：直接构造一个空回去即可。
+
+
+map||set：（其实都是封装下层的RBTree）
+	注意在类模板里取一个类型 -- 怕是静态的变量还是类型，需要加上typename告诉编译器这是一个类型，不是静态变量。
+
+	重载方括号 -- （红黑树不能区分是map还是set）
+		
+		
+	
+
+
+
+
+

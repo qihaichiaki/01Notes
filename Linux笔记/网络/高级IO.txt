@@ -1,0 +1,873 @@
+网络通信本质：IO。
+IO效率问题：效率一定非常低下。
+
+IO：INPUT&&OUTPUT，冯诺依曼-访问外设。
+
+IO为什么低效？
+	以读为例。
+	1.当我们read/recv的时候，如果底层缓冲区没有数据，read/recv会怎么办？-阻塞
+	2.当我们read/recv的时候，如果底层缓冲区有数据，read/recv会怎么办？-拷贝
+		-> 最终完成了一次IO = 等 + 数据拷贝（写同样如此）
+		read、recv、write、send，其实等IO事件就绪，发起拷贝。
+
+	所以，在单位事件内：大部分时间IO接口都在等。
+	
+-如何提高IO的效率？
+	想办法在单位时间让我们等的比重越，IO的效率就越高。
+
+--------------------------------
+五种IO模型：
+	讲五个故事：
+		钓鱼，分两步：1.等，2.钓 -- 什么场景证明整个人效率非常高？钓鱼 = 等  + 钓，只要单位时间等的比重非常低，那么效率一定高。
+		
+		张三：盯着鱼漂。				-阻塞式
+		李四：盯一会儿鱼漂，耍一会儿。		-非阻塞轮询式
+		王五：存在铃铛，铃铛一响，直接钓起来。		-信号驱动 (29-SIGIO) 
+		赵六：100鱼漂。土豪			-多路复用、多路转接
+		田七、小王：派小王钓			-异步IO
+
+	1.钓鱼谁最高效？赵六。单位时间内，赵六等的比重是非常低的。
+	2.如果一个人（进程&线程），参与IO，就称之为同步IO。否则就是异步IO。
+		参与：要么参与等，要么参与拷贝，要么同时都在参与。
+
+阻塞IO和非阻塞IO有什么区别呢？
+	IO = 等 + 拷贝，等 -- 非阻塞的等和阻塞的等。
+	阻塞等：执行流 --将PCB-非R状态，链入对应文件等待队列。
+	非阻塞等：不挂起，检测无果后自己返回，执行其他代码，基本写的时候是循环的。
+	-但是拷贝是自己去做的。
+		
+多路转接:
+	select： 只负责IO第一个动作：等。允许添加多个描述符。等多个文件描述符IO资源就绪。但是recvfrom只能一个一个去拷贝的。
+
+
+
+mmap - 可以文件级别的映射
+下面的代码 一般都是一种模板，就像STL库一样的，我们学习它就需要自己写一遍。
+
+----------------------------------
+非阻塞IO：
+	1.让IO非阻塞，打开的时候指定非阻塞接口。（open、socket....）
+	2.我们用统一的方式进行非阻塞设置。
+	fcntl();  // 非阻塞和阻塞也是文件的一个属性。-struct file
+	
+	int fcntl(int fd, int cmd, ... /*argv*/);有五种功能  失败返回-1
+	cmd = 
+
+	// 实验：使用标准输入 0 - 天然的是阻塞的。
+		改成非阻塞。
+		int fl = fcntl(fd, F_GETFL);  //在底层获取当前fd对应的读写标志位。 
+		if (fl < 0) retun
+		else fcntl(fd, F_GETFL, fl | O_NONBLOCK);  // 在原本的情况下 - 不动原来的情况下，设置非阻塞状态。
+	// 只要设置一次后续都是非阻塞了。
+
+	非阻塞的时候，如何甄别是是出错，还是数据没有就绪呢？
+		出错，不仅仅是出错返回，出错变量errno变量也会被设置，表示出错原因。
+		注意每次刷新的话需要重新设置为0.
+		11表示 - 没错，只是数据没有就绪而已。即：ewouldblock || EAGAIN --
+	
+	-EINTR：这个调用被一个信号给中断。也就是说可能在等文件资源的时候，被系统唤醒，等待中断了。
+	// 除开上面的之外，就是真正的错误。-差错处理。
+
+---------------------------------
+I/O多路转接之select：
+	IO = 等 + 数据拷贝。
+		select只解决等的问题。
+			1.帮用户一次等待多个文件sock。
+			2.当哪些文件sock就绪了，select通知用户，就绪的sock有哪些，用户调用io接口读取即可。
+
+
+	1.快速认识接口：
+	int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *execepfds, struct timeval *timeout);
+	
+		nfds: maxfd + 1.即最大的文件描述符值
+	
+		返回：就绪的fd的个数。
+			至少有一个fd数据就绪或者空间就绪（读和写），就可以进行返回了。
+		
+		剩下的参数：都是输入输出型参数。
+
+		timeout：
+			 struct timeval-获取当前时区的时间。
+				time_t tv_sec - 时间戳
+				suseconds_t tv_usec;  // 微妙级别的
+			
+			可以使用接口gettimeofday(); // 系统接口 - 
+				struct timeval输出型参数，可以先清空。返回0表示成功。
+			也可也i直接使用time - C接口，直接获取时间戳 -time(nullptr);
+			
+			输入型参数：
+				select等待多个fd，等待策略可以选择：
+					1.阻塞式   nullptr
+					2.非阻塞式 {0, 0} 
+					3.可以设置timeout时间，时间内阻塞，时间到直接返回。{5, 0}; // 5s阻塞，到了立马返回。
+			等待时间内存在fd就绪，timeout就表示输出型。
+			输出型参数：表示距离下一次timeout，剩余多少时间。比如2s就绪，那么返回{3, 0};
+					
+		fd_set 三个参数：a、输入时：用户告诉内核，你要帮我关心哪些fd(sock)的哪一种事件（读、写、异常是否就绪）。b、输出时：内核告诉用户，我所关心的sock中，哪些事件已经就绪了。
+		
+
+	2.fd_set：是一个位图结构。
+		文件描述符集。
+		不能直接对位图使用。
+		-使用接口：FD_CLR、ISSET、SET、ZERO（fd, fd_set*）
+	
+
+	3.接口挑一个重点参数，细致的分析一下
+		int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *execepfds, struct timeval *timeout);
+		
+		假设读文件描述符集readfds
+		a、输入的时候，用户通知内核我的比特位中，比特位的位置表示我们的文件描述符值，比特位的内容表示：是否关心。0000 1010 -> 从低位开始：不想关心0号fd的读事件。关心1号fd的读事件......
+		b、输出的时候：内核告诉用户，用户你让我关心的多个fd的等待结果。比特位的位置表示我们的文件描述符值，比特位的内容表示：是否就绪。 0000 1000 - 表示3号fd就绪，用户读取3号fd不会被阻塞！
+		
+		此时位图结构用户和内核是修改的同一个。使用过一次后，一定需要重新设定！
+		
+		
+	
+	4.推而广之，理解类似的参数
+
+		
+		-出现异常就不进行正常读和写了。添加到-execepfds即可。
+	
+
+	5.快速编写代码：
+
+		fd_set是一个固定大小的位图，直接决定了select同时关心的fd的个数是有上限的。
+		-测试：1024个文件。
+
+		selectServer编写
+			单进程为多个套接字进行服务。
+			sock生成多个-是一个服务器动态执行的结果。由一个监听套接字得出结果。
+			先测试读效果。
+			
+		-如何看待监听套接字？
+			-accept将底层的一个TCP链接获取上来而已。-是得到建立连接成功的结果。我们可以依旧看作IO，也是一个input事件。没有连接到来，调用accept就不是阻塞-进行等待了嘛。
+			
+		所以在selectServer中不能直接使用accept，让select去等，所以此时主进程就不会被阻塞了。
+		fd_set rfds;
+		FD_ZERO(&rfds);  // 首先清空
+		while (true)
+		{
+			struct timeval timeout = {5, 0};  // 每隔5s阻塞等。-注意是输入输出型的 00表示非阻塞等待
+			FD_SET(listensock, rfds);  // 添加到读文件描述符集中
+			int n = select(listensock + 1, &rfds, nullptr, nullkptr, timeout)。// timeout 如果是nullptr就是阻塞  
+			如果n的返回值为0，表示当前没有文件描述符就绪。（阻塞是不会等于 0的）
+			返回值为-1， select失败。
+			大于0就表示成功的。
+		}
+
+		连接到来的时候，如果没有取走，有数据就会一直返回的。读 - 存在数据。select要一直通知你。
+		所以连接到来了，就需要处理此事件了。HandlerEvent(&rfs, );
+		
+	private:
+		HandlerEvent(const fd_set& rfs)  // 立马可能存在多个sock
+		{
+			// 当就绪了使用此接口进行处理连接。
+			// 当前只是监听套接字。
+			FD_ISSET(l, rfds);  // 存在返回1
+			此时获取连接 - accept	此时就可以直接不会了！
+			如果小于0 - 差错处理。
+
+			// 不能直接进行read和recv - 除非创建线程或者进程 要不然就是直接阻塞住，服务器就会被挂起了。得到新连接得时候，我们应该考虑得是，将新的sock托管给select，当存在数据，select就会通知我，在做对应的处理，这样就不会被阻塞了。
+			
+		}
+
+	6.select一般的编写代码的模式：
+
+		1nfds,随着获取的sock的越来越多，注定了nfds都可能发生变化。-最大文件描述符+1。-
+		2rfds、wfds、efds都是输入输出型参数，。-输入输出不一定是一样的。每一次对rfds重新添加。
+		3timeout也是输入输出，每一次需要重置，前提是你需要的话。
+		1、2-> 将我们自己合法的文件描述符全部保存起来，用来支持：1-更新最大fd，2.更新fds-位图结构。
+		
+		a、需要一个第三方数组，保存合法的fd。
+		
+			while
+				1、遍历数组，更新最大值
+				2、遍历数组，添加关心的fd到set中
+				3、事件检测。
+				4、遍历数组，找到就绪的事件，完成对应的动作：连接、读取
+				扩展：引入写入。-现在不好改写。epoll解决。		
+				
+
+			数组 - 1024个即可。1024 = sizeof(fd_set) * 8;
+			int fdarray[NUM] - 原生实现。// 也可以使用vector
+			首先初始化为-1 - 表示文件描述符不存在的情况
+			首先，规定位置给_listensock。不变-约定
+
+			
+
+			
+		承接上述代码，并且优化了数组处理：
+			只要获取了sock，添加到数组里即可。
+			如果满了，表示已经超过select监管个数了，满了，你没有位置了，丢弃此链接！
+			如果存在，就添加到我们管理的文件描述表中即可。
+
+			此时rfds有两个sock，一个监听一个服务套接字。我们的select就绪的会越来越多！
+			
+			处理就绪套接字资源：需要串行执行：
+				原本是-1，跳过  // 不合法的跳过
+				如果FD_ISSET(fd, &fd_set)  // 判断合法文件描述符是否事件就绪了。
+					-读事件就绪了！
+					一定是read？
+				判断是否是监听套接字，监听套接字就获取链接添加sock，否则就是read！
+					// 连接事件到来（accpet）、IO事件到来（read、recv）
+
+					IO事件：
+						此时事件一定是就绪的，本次不会被阻塞。
+						>0需要注意，直接读取字节流的数据是存在bug，即保证是一个完整报文？-并且解决粘包问题。-此处到epoll再说-配合协议进行说。
+						==0如果对端关闭了：1.首先不需要让select关心了，初始化，然后 ，但是需要关闭此文件描述符。-先关闭此文件描述符
+						< 0出错了  报错，然后也需要做和close一样的事情
+						
+
+		
+--总结：
+	select优缺点：
+	优点：-任何一个多路转接都是这样
+		a、效率高！-和之前的比。单位事件内，等的比重小了。
+		b、应用场景：有大量的连接，但是只有少量是活跃的！
+		
+	缺点：
+		a、为了维护第三方数组，select服务器充满了大量的遍历 - On OS底层关心的时候也是存在大量的遍历的。
+		b、每一次都要对select输出参数重新设定。
+		c、能够同时管理的fd的个数是存在上限的。-fd_set。-1024bit
+		d、因为几乎每一个参数都是输入输出型的，决定了select一定频繁的用户到内核，内核到用户参数数据拷贝。
+		e、编码比较复杂。（前四个缺点导致的）
+
+		
+
+	所以，存在下一种方案 - poll。
+
+
+------------------------------------------------
+IO多路转接 第二套方案 - poll
+	1.poll输入输出参数做了分离。
+	2.poll管理fd不存在上限。
+
+
+	接口；
+		poll.h
+		int poll(struct pollfd fds[], nfds_t nfds, int timeout);
+	1.poll 是什么东东。
+		poll是一种多路转接的方案，也只负责等。-和select一样，需要完成：1.用户告诉内核，关心哪些fd。2.内核告诉用户哪些fd就绪了。
+	
+	2.参数：
+		timeout - 输入型参数，毫秒。阻塞多久进行等待。为0表示非阻塞。-1就是阻塞方式进行等待
+		返回0：
+			等待超时，无就绪
+		-1，错误。
+		> 0 对应就绪个数。
+
+		struct pollfd
+		{
+			int fd;  // 不会对fd 用户和内核都不会改其
+			short events;  // 请求事件  -- 用户写的，内核只对其读取
+			short revents; // 响应事件，内核告诉用户哪些事件就绪了。
+		}
+		// 解决了select的问题：输入输出进行分离。
+		// short - 类似位图的操作，标记位 进行识别2byte - 16bit 标志想让其请求监视的事件或者响应的事件。
+			POLLIN、POLLOUT、POLLERR、POLLPRI、	POLLRDHUP....
+			可读	可写	错误	   高优先级数据可读    TCP对方关闭连接
+						-TCP的urg标志
+		struct pollfd fds[]
+		完全由用户决定大小，所以解决了文件描述符的上限。
+		
+		nfds,决定等待的文件描述符个数。（如果其中存在-1即非法fd，操作系统是不做处理的）
+
+
+	3.写代码：
+		demo：
+			0号文件描述符 - 代替read等待
+
+
+		修改之前selectServer服务器的代码：
+			首先，还是需要初始化 - 对fd = -1，events = 0， revents = 0
+			
+			因为是位图，按位与，查看是否存在，存在就说明revents存在-即操作系统设置就绪了。
+		
+
+-poll的优缺点：
+	优点：
+		1.效率高
+		2.有大量的链接，只有少量的是活跃的-节省资源
+		3.输入输出参数分离，不需要进行大量的重置。
+		4.poll参数级别，没有可以管理fd的上限。
+	缺点：		
+		***1.poll仍然避免不了结构体数组，还是需要进行遍历的，在用户从检测事件就绪，内核检测fd就绪，都是一样。
+		2.poll需要内核到用户的拷贝。 -- 少不了
+		*3.poll编码也不容易。--比select容易。
+
+		
+	所以，需要下一个方案解决：epoll - 加强版的poll （实际上功能强大的多）
+	
+-------------------------------------------------------
+I/O多路转接之epoll***
+
+1.快速的理解部分概念，快速的了解epoll的接口。
+	为了处理大批量句柄而改进的poll。（标识特定的文件资源的对象 - 叫做句柄）
+	
+	int epoll_creat(int size);  // 512 - 256 、size现在是废弃的。返回值是一个文件描述符-epoll模型。
+	int epoll_ctl(int epfd, int op, int fd, struct epoll_event * event);
+	int epoll_wait(int epfd, struct epoll_event * event, int maxevents, int timeout);  // 返回值已经就绪的文件个数
+
+2.讲解epoll的工作原理
+	1.无论是select、poll都是需要用户自己维护数组进行保存fd和特定事件的。--成本、程序员承担
+	2.select、poll都需要遍历。（内核和用户都要遍历）
+	3.poll、select工作模式：
+		a、通过系统调用，用户告诉内核哪些fd上的哪些事件
+		b、通过系统的返回，内核告诉用户哪些fd的哪些事件已经发生了。
+	
+	
+	
+			用户、程序员
+	操作系统
+			系统调用
+			OS
+
+	网卡驱动
+	网卡
+
+		1、OS是怎么知道，网卡里面有数据的？
+		2、OS是怎么知道键盘有输入的呢？
+			--采用硬件中断的方式。网卡-中断通知>cpu-执行void(*hanlder[])()-中断向量表->read_netcard()此时就可以从网卡内搬到操作系统内部了。-此时在经过网络协议栈进行一步步，最后通知上层。
+						转化为一个值保存到寄存器里-索引
+		
+
+
+     ----epoll模型 - 调用1epoll_create()的时候
+
+
+				用户、程序员
+	操作系统
+				系统调用
+
+				创建红黑树 - 自平衡的搜索二叉树 - 
+				struct rb_node
+				{
+				//...
+					int fd;
+					short event;
+				//......
+				}
+				// 解决用户告诉内核 - 每次只需要在OS内部的构建红黑树进行插入注册而已。
+				// OS每次就会从此棵树进行检测。等价于select、poll维护的数组。
+				2epoll_ctl -- 插入注册红黑树。-增删改方法。
+
+
+
+				就绪队列[]// 先进先出的原则、链式的队列
+				[] <-> [] <-> [] <->[]
+				struct ready_node
+				{
+				//..... 这里大概了解，这里为了清楚的表示
+					int fd;
+					short revents;
+					// 其他属性
+				}
+				// 用户曾经在红黑树注册的fd的事件，如果存在就绪，形成一个新的节点（fd和就绪的事件），插入进就绪队列。此时不用再关心红黑树，直接队列送上去即可。-内核告诉用户哪些事件就绪了.
+				// 3epoll_wait 从底层，从就绪队列中拿上来。
+
+
+			|	
+OS
+
+	网卡驱动		注册一个回调方法。之前操作系统是需要遍历查看哪些fd就绪了。
+			但是现在设置了一个回调函数。一旦有数据（协议栈经过）就绪，
+				1、根据红黑树上节点要关心的事件，结合已经发生的事件
+				2、自动根据fd和已经发生的事件构建node。
+				3、自动构建好的节点，插入到就绪队列中。
+			// 因为采用的是回调方法，OS不需要频繁遍历了，并且过程自动，OS甚至不用关心。
+
+	网卡
+
+
+	那么epoll_create返回的文件描述符是什么意思？
+		一定要知道，是一个进程。
+		task_struct	<-	文件描述符表	<-	struct_file	  <-   epoll模型(是一个数据结构的)
+						
+	
+
+	细节1：红黑树，是存在key值的，文件描述符。
+	细节2：用户只需要设置关心，获取结构即可，不需要关心任何fd和event的管理。
+	细节3：epoll为何高效？-1、增删改效率高，2、文件描述符监视，OS不需要遍历，直接回调。3、就绪队列直接获取节点 - 不需要OS去遍历了。
+	细节4：底层只要有fd就绪了，OS字节会构建节点，连入到就绪队列中，上层只需要epoll_wait从就绪队列将数据拿走就完成了获取就绪事件的任务。-此时就是一个生产者与消费者模型-，就绪队列就是一个临界资源（共享资源）-epoll已经保证了线程安全了。
+	细节5：如果底层没有就绪事件呢？阻塞。- 此时wait中你可以采用阻塞或者非阻塞模式。			
+		
+
+3.epoll服务器 - 封装
+	epoll.hpp
+
+class Epoll
+{
+	createepoll()
+	{
+		epoll_create(size);// size > 0即可 
+		// 错误返回-1
+	}
+	
+	bool ctlepoll(int epfd, int oper, int sock, uint32_t events)  // 哪个epoll模型 什么操作，那么文件描述符， 添加什么事件
+	{
+		epoll_ctl.. 封装接口 op-增删改 add、del、mod  -event结构体关心哪些事件，和poll中的类似，以及一个联合体。
+		struct epoll_event ev;
+		ev.events = events;
+		ev.data.fd = sock;
+		int n = epoll_ctl(epfd, oper, sock, &ev); // 等于0修改成功
+	}
+
+	waitepoll(epfd, recv, num, timeout) // 一次拿多少，向如何进行处理？
+		return epoll_wait()....
+		// 0 表示超时
+		// -1 等待出错
+		// 否则返回就绪的个数
+
+// 细节1：如果底层就绪的非常多，revs承装不下，怎么办？ - 不影响，一次拿不完下一次在拿呗。
+// 细节2：关于epollwait的返回值问题：和select、poll基本完全一致，几个时间就绪就返回几。**epoll返回的时候会将所有就绪的event按照顺序，从0到n放入到revs数组中。所以不用遍历无效的数组。
+
+
+};
+	
+	
+	epollserver.hpp
+
+
+// 目前只处理读取
+class epollServer
+{
+	using func_t = std::function<void(std::string)>;
+
+	方法：
+		// 初始化
+		0.申请就绪node数组的空间
+		1.创建listensock	
+		2.创建epoll模型
+		3.将listensock先添加到epoll中，让其帮我们管理起来。
+			epoll-add、epollin - 只读
+		
+		// Accepter(int sock)
+			int sock = accept();
+			拿上来，使用poll_ctl添加。
+			// 将新的sock，添加给epoll模型（插入epoll模型中的红黑树中去）
+			
+		// Recver(sock)
+			// 稍微规范一下
+			// 1.读取数据
+			recv();
+			需要注意，当对方关闭或者异常，先去掉关心 - epoll。del。如果先关，那么此文件描述符就非法了，就很有可能报错。
+			// 2.处理数据
+			在main定义处理函数，这里进行回调。
+
+		// handlerEvents(n) 处理就绪事件
+		for 0 n
+			获取事件和sock - 
+			if (&epollIN)
+			{
+				// 存在读事件就绪
+				// 1.listensock就绪
+				Accepter();
+				// 2. read
+				Recver();
+			}		
+		
+
+		// looponce(timeout) - 循环一次
+		进行等待。根据时间进行等待.
+			返回>0 表示已经存在就绪的事件了		
+
+		// start()
+		while(true)
+			设置时间调用looponce(timeout)
+			
+		// 析构
+		epollfd、监听套接字 _revs
+	成员：
+		监听套接字
+		epollfd
+		端口号
+		staruct epoll_event *_revs;// 可以动态申请，也可以定死，用于获取就绪的node
+		func_t handlerRequest;
+};		
+
+//
+
+	main.cpp
+		
+
+// 上述代码还是存在问题。
+-粘包问题、完整报文、协议的定制-序列化和反序列化。
+-如果写还怎么处理呢？
+-还存在异常等该如何处理？
+
+
+4.工作模式	ET、LT模式 -- 非阻塞模式
+
+	派发快递，张三：手里有数据，一直通知你。
+	李四：手里有数据-变化得时候：无到有，有道多的时候，才通知你。
+
+LT模式：水平触发	底层存在数据就会一直通知你。-也就是一直就绪。
+ET模式：边缘触发	数据首次到达或者变多的时候才会通知。
+
+select、poll、epoll的默认工作模式LT模式。
+-这也是之前代码死循环的原因。
+
+	在之前的例子中，为什么李四更高效？
+		一天打的电话的总数是一定的（一天时间固定），那么李四通知的范围更大，重复更少。张三的话存在重复通知，所以其对于李四来说就很低。
+
+	细节1：我为什么要听李四的？我如果不取，底层再也不通知我了。--上层调用就无法在获取该fd的就绪事件了。-无法调用recv，数据就丢失了。-倒逼程序员，数据就绪就必须一次性将本轮就绪数据全部取走！
+	细节2：我可以暂时不处理张三的通知事件吗？可以，。因为我不取或者只取了一部分，不担心，底层还会让fd就绪，还有读取的机会！
+	细节3：如果我就是LT模式，我也一次将数据拿完。LT和ET上在效率上其实是没有差别的。	
+
+LT模式 VS ET模式原则上谁更高效？
+	ET模式。
+	1.更少的返回次数。
+	2.ET模式会倒逼程序员将接收缓冲区中的数据全部取走，应用层就更快的取走了缓冲区的数据，单位时间下，此服务器在一定程度上会给发送方一个更大的接收窗口，对方就可以有更大的滑动窗口，提高IO吞吐。
+	ET模式的代码复杂度比较高。
+
+
+因为在ET模式下，如果不把数据拿取完，那么会丢失。
+细节四：我们怎么保证，把本轮数据全部读完呢？必须一直循环读取，直到读取（此时应用是不知道缓存区内数据的大小的）道最后一次，我们还需要进行下一次读取。在阻塞模式下，下一次就会被阻塞，必然会导致进程挂起。所以，我们的sock必须设置为非阻塞。->直到读取出错（EAGAIN）
+
+所以，ET模式下：sock必须是非阻塞的工作模式。
+
+
+编码实现TCPServer
+	为了保证未来正确的读取， 每个套接字应该有一个自己的缓存区。
+		因为针对于读取上来的数据可能是分批进行发送的，所以这次读取上来的数据不一定是完整的报文。
+	当然，也存在发送缓冲区。
+
+// 获取一个连接 都会申请一个Connection
+using func_t = function<void(Connection*)>;
+class Connection
+{	
+public:
+	Connection()
+	{}
+	void SetCallBack(func_t  recv_cb, func_t send_cb, func_t except_cb)
+	{
+		// 设定三种回调方法
+	}
+	~Connection()
+	{}
+
+	int _sock;  // 负责IO的文件描述符
+	// 三个回调方法，对_sock进行特定读写的方法
+	func_t _recv_cb;  // 读取回调
+	func_t _send_cb;
+	func_t _except_cb;
+
+	//接收缓冲区、发送缓冲区
+	string _inbuffer;  // 暂时没有办法处理二进制流，文本是可以的。
+	_outbuffer;
+	// 设置对TCPServer的回值指针。
+	TcpServer* _tsvr;
+};
+
+class TcpServer
+{
+	const static gport = 8080;
+	const static int gnum = 128; 
+public:
+	TcpServer(int port = gport):
+	{
+		// TCP服务套接字基本方法
+		// 获取监听套接字，绑定，设置监听状态
+		
+		// 创建多路转接对象。
+		// 添加监听套接字到服务器中		// 解耦！
+		AddConnection(sock, std::bind(&TCPServer::Accepter, this, std::placeholders::_1), nullptr, nullptr); 
+		// 绑定器的使用, bind相当于多包含了一层函数层。传给AddConnection就是这层函数层。
+
+		// 定义一个获取就绪事件的缓存区。
+		
+	}
+
+	void Accepter(connect* conn)
+	{
+		// 被调用	
+		// 一定是listensock已经就绪了。
+		// 直接读取即可accept
+		// 获取到sock，托管给TcpServer - 暨addconnection。
+		// 此时三种方法如何获取？ - 在类内定义Recver、Sender、Excpeter三个函数进行处理即可。
+		// 使用bind绑定类内方法即可
+		// 此时存在问题 - 只关心读事件，并且都处于非阻塞模式 -- 如何保证底层只有一个链接就绪呢？-ET模式！链接是可能来了一大堆的！！！！
+		if (sock < 0)  // 必须对其进行正确处理，因为是非阻塞！
+		{
+			// 通过错误码进行判断是读出错还是没有链接了呢？
+			// 在sock accept 增加int *accept_errno 默认设为0，失败了，设置一下错误码 - errno
+			if(errno == EAGIN || errno == EWOULDBLOCK) break;  //此时只是没有链接了 - 
+			elif (errno == EINTR)  // 中断了IO处理 continue;  // 概率非常低
+			else // 此时才是读取失败 log WR .. 链接失败不影响，重新连接即可。break;
+		}
+
+		此时进行addconnection即可。
+	}
+
+	void EnableReadWrite(conn， bool readable, bool writeable)  // 打开或者关闭 其的读和写
+	{
+		events = readable ? EPOLLIN : 0 | (writeable ? EPOLLOUT : 0);
+		bool res =  _poll.CtrlEpoll(sosk, events);
+		assert(res);
+	}
+
+	Recver(connect* conn)
+		bool err = false;
+		// 此时非常相信一件事情：读取事件已经就绪了。
+		const int num = 1024;
+		while(true)
+		{
+			// 先不配合协议，直接面向字节流
+			char buffer[num];
+			int n = recv(sock, buffer, num, 0);  // 此时虽然设置flag = 0，但是一定是非阻塞的，因为sock就是非阻塞。
+			小于零，查看errno查看是否真失败-error-break还是只是读完了-break或者异常了-continue。
+				失败了，调用异常回调。  // 所有的异常都会到Excpeter这里进行集中处理  err = true;
+				IO异常，继续下一次循环
+				读完，跳出即可
+				
+				
+			等于0，对端关闭 log 
+			大于0，读取成功
+				本次读到的缓冲区。此时将此数据添加到connection的inbuffer中即可。
+		}
+		if (!err)
+		{
+			vector<> messages;
+			SpliteMessage(buffer, messages)
+			for (auto& msg : messages)
+			{
+				// 此时每一个就是一个完整报文。
+				// 然后要如何处理呢？注意网络服务器不能和业务强耦合。坚决不要！
+				// 此时上层增加一个 fuc<void(connection* std::string request)> - 增加到服务器中
+				_cb(conn, msg);  // 可以将这里的msg封装为task，push到任务队列，交给任务池，这样服务器继续读取网络需求即可。
+				
+			}
+		}
+
+	
+	// 最开始的时候，我们的conn 是没有被触发的。
+	Sender(connect* )
+		while(true)
+		{
+			ssize_t n  = send(conn->_sock, conn->outbuffer.c_str(), size, 0);
+			if (n > 0) 发送成功 - 确定发完了吗？
+			{
+				// 发多少处理多少 - 应用层无需考虑丢包问题
+				conn->_outbuffer.erase(0, n);
+				if (conn->_outbuffer.empty()) break;
+			}
+			else
+			{
+				if (errno == EAGAIN || ) // 此时发送缓冲区可能满了-TCP底层，过一会儿再发 break;
+				else if (errno == E)  // 信号中断，继续 contiue;
+				else 发送错误了，交给异常处理回调 break;
+			}
+		}
+		// 发完了吗？
+		不确定，但是可以想办法统一处理,
+		if (conn->_outbuffer.empty())  // 此时已经发完了，就不需要关心写了。-因为每次都要就绪
+			En(conn, true, false);
+		else // 没发完，下次再发 这里是打开的，但是保险可以添加上true、true： 
+		
+
+	Excpeter(Connection* conn)
+	{
+		if (!IsConEx(conn->sock)) return;
+		// 此时是存在的，我们要从epoll模型中进行一个移除即可
+		_poll.Del(conn->_sock);
+		// 2.从我们的unorder_map中移除
+		_connecytions.erase(sock);
+		// 3.close(sock);
+		// 4.delect conn
+		delete conn;
+	}
+	
+	
+	
+	void LoopOnce()
+	{
+		int n = _poll.WaitEpoll();  // 将就绪的node拿上来了
+		for (int i = 0, n)
+		{
+			拿到对应的文件描述符
+·			对应的关心的事件
+			
+			EPOLLERR、EPOLLHUP  -> revents |= (读写||) - 统一异常处理
+			// 此时不需要做任何区分：
+			if(revernts & EPOLLIN) if (IsConnectionExists(sock) && _connections[sock]->_recv_cb)  // 为什么要这样，因为未来服务器可能存在大量的异常情况。需要判断是否在map里面。并且回调函数是被合法设置了的。
+				此时就调用回调方法
+			if(revernts & EPOLLOUT) if (IsConnectionExists(sock) && _connections[sock]->_send_cb) 调用回调方法。
+			
+			 
+			
+		}
+	}
+	// 服务器要对外进行派遣 -根据对应的事件进行一个特定事件的派发。--之前的start
+	void Dispather(call_back_t )  // 增加业务逻辑
+	{
+		while(true)
+		{
+			LoopOnce();	
+		}	
+	}
+
+	// 专门对任意sock添加到服务器内
+	void AddConnection(sock, func_t ..三种方法)
+	{
+
+		// 添加listensock道epoll模型中。但是现在不存在裸的套接字了，而是看到的是一个Connection（链接）了。
+		首先创建一个Connection对象。-监听套接字只关心读事件。
+		// 但是注意了，现在只是一个sock，但是未来存在大量的sock，每个sock都必须被封装为一个Conection，当服务器中存在大量的时候，TCPServer就必须对其管理。-先描述Conection，在组织 map。
+		// 构建conn对象，封装sock和回调方法。
+		给当前Connection设置回调函数。
+		con->SetCallBack(三种回调的方法);
+		_tsvr = this;
+		
+		// a将sock[] 添加道epoll模型中。b还要将对应的Connection指针添加到映射表中。-为了通过sock找到Connection才能对事件进行一个处理。
+		// 任何多路转接的服务器，一般默认只会打开对读取事件的关心，写入事件按需打开 - 读是底层有数据，写是发送缓冲区是空间的 - 一开始发送缓冲区是一直有空间的，所以只是读默认。
+		
+		AddSockToEpoll（sock, IN | EPOLLET）-ET模式  // 默认就是LT模式
+		// 需要注意ET模式，fd必须是非阻塞的。在sock.hpp添加SetNonBlock方法，利用fcntl(sock, F_GETFL);// 获取当前标记位， 小于零错误 fcntl(sock, F_SETFL, fl | ); 所以一开始就必须设置非阻塞，因为文件描述符默认是阻塞模式的。
+	}
+	
+	~TcpServer()
+	{  // 注意析构 }
+private:
+	int _listensock;
+	int _port;
+	Epoll _poll;
+	// sock : connections
+	unordered_map<int, Connection*> _connections;		
+	struct epoll_event* _revs;
+	int _revs_num;
+	callback_t _cb;  // 上层的业务逻辑 - 获取完整报文后如何进行处理 
+};
+
+
+
+// 封装Epoll.hpp 
+class Epoll
+{
+public:
+	Epoll(_timeout)
+	{}
+
+	void EpollCreate()
+	{
+		_epfd = epoll_create();
+		// 小于0，差错处理，直接终止程序
+	}
+	
+	bool AddSockToEpoll(sock, uint32_t events)
+	{
+		// 需要保证上层从就绪列表获取的节点能够提取出fd。
+		epoll_ctl(, epoll_ADD, );
+		return n == 0;
+	}
+
+	int WaitEpoll(struct epoll_event revs[], int num)
+	{
+		int n = epoll_wait();
+	}
+	
+	bool CrtrlEpoll(sock, uint32_t events)
+	{
+		events |= EPOLLET;
+		ev.events = events;
+		ev.data.fd = sock;
+		epoll_ctl(_epfd, EPOLL_CTL_MOD, sock, &ev);  // 修改关心的
+		return n==0;
+	}
+	bool DelFromEpoll(int sock)
+	{
+		int n = epoll_ctl(_epfd, EPOLL_CTL_DEL, nullptr);
+		return n==0;
+	}
+	
+	~Epoll()
+	{}
+private:
+	int _epfd;
+	int _timeout;
+};
+
+
+
+// 增加协议定制：仅仅针对telnet
+Protocal.hpp
+// 1.报文和报文之间，我们采用特殊字符进行解决粘包问题
+//2.获取独立报文，进行序列和反序列化 - 自定义即可
+
+//100+98X14+23
+#define SEP "X"
+#define SEP_LEN strlen(SEP)
+
+
+// 传入进来的缓冲区进行切分
+// 1.buffer被切走的，也同样从buffer中移除
+// 2.可能存在多个
+void SpliteMessage(string& buffer,  vector<string>* out)// 分割消息
+{
+	while(true)
+	{
+		auto pos = buffer.find(SEP);
+		if (std::string::npos == pos) break;  // 没有分隔符，不做处理
+		string message = buffer.substr(0, pos);
+		buffer.erase(0, pos + SEP_LEN);  // 将前面的移走
+		out->push_back(message);
+	}
+	
+}
+
+
+void Natcb(connection* conn, string& msg)
+{
+	// 1. 反序列化
+	DeserLizer(request, x, y, op);   // 这里只是简单封装，没有实际封装。 - 利用网络版本计算器
+	// 2.业务处理
+	Response resp= calulator(req);
+	// 3.构建应答，序列化
+	std::string sendstr = resp.Serialize();
+	sendstr = Encode(sendstr);
+	// 4.交给服务器，让服务器进行发送
+	// 此时就可以知道，业务才知道什么时候该写。
+	conn->_outbuffer += sendstr;
+	// 完整的发送逻辑。
+	// 我们触发发送的动作，一旦我们开启EPOLLOUT，epoll会立马触发一次发送事件就绪，如果后续继续保持发送的开启，epoll会一直发。
+	conn->_tsvr->EnableReadWrite(conn, true, true);  // 此时往后就不需要管了。发完了自动内部是会关闭的。
+}
+
+5.如何设计基于epoll一个完整的服务器 - Reactor模式。
+// 1解决粘包问题
+// 2协议定制
+///////如何正确处理//////////
+// 3写入处理
+//////如何正确写入////////////	
+
+
+
+
+扩展思路：
+	一个连接连上，如果一直不发送消息 。。 也就是说长时间不活动的连接// 链接管理功能  - 每个connect加上一个时间戳 -uint64_t timeout;
+	在每次事件处理的时候LoopOnce();  ConnectAliveCheck();-- 再添加connection 加上time();
+	每一次读的时候，更新时间戳.// 更新最近的时间戳
+	ConnectAliveCheck，遍历所有的connection，检查最近活动事件，如果长时间没有动，我们就进入到链接超时的逻辑：
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	

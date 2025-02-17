@@ -1,0 +1,139 @@
+Scroll View 滚动窗口
+	UI窗口中需要一个可滚动的空间，让玩家看到更多信息。
+	此滚动窗口不是一个组件，它时许多组件的组合。
+	unity：UI/Scroll View创建一个新的滚动窗口，里面的部件如下：
+		Scroll Rect组件：可滚动区域
+			核心组件，协调管理的作用，控制多个组件，提供了许多关于滚动窗口的API。
+			Content：滚动的内容。	
+			Horizontal/Vertical:是否允许水平/垂直方向上的滚动
+			Movement Type：是否有边界、是否应用回弹等。
+			Scroll Sensitivity：灵敏度。数值越高滚动越快
+			ViewPort：可见区域（存在Mask物体），为Content的根物体
+			Horizontal Scrollbar：水平滚动条组件
+			Vertical Scrollbar：垂直滚动条组件。
+		Viewport物体：代表可看见的部分；该物体有Mask组件确保内容不会超出该区域
+			Content：可滚动的内容
+		Scroll Bar组件：滚动条
+			类似于slider。也有个重要属性时value，当前滚动条的值。
+			Scroll Rect会读取滚动条的值将窗口内容放置正确的位置。
+			属性：
+				1.interactable：是否可互动
+				2.Transition：互动时的视觉过渡
+				[Navigation：表示不用鼠标，按键与UI进行交互
+				3.Value：滚动条当前位置
+				4.Size：可点击区域的大小
+				5.Number of Steps：滚动条离散的位置数量（决定拖动的次数 - 精确控制滚动区域？）
+
+	鼠标能进行拖动是因为在Scroll Rect中存在Event事件会获取鼠标位置并且判断是否在Scroll View image上，在的话就会生效鼠标拖动。（image中的Raycast Target关掉的话，那么判断是一直通过，在滚动窗口外也可以进行拖动了）
+	
+-原理
+	RectTransform与UI大小
+		RectTransfrom是一个Transform的扩展，提供了矩形框来表示UI组件的功能（利用像素表示单位，对于世界坐标，1像素 = 1m）。
+		ScrollRect组件是怎么知道滚到哪里停止，以及当前位于整个content的哪个位置的呢？
+		-通过content的大小。
+		表示的内容放在content子物体下。
+		*那么新增的内容如何完美并且适应content的大小呢？--自适应（Content Size Fitter组件）
+	
+
+Auto Layout 自动排版
+	Unity提供的一套UI排版解决方案，它能够应对动态的UI修改并保持排版的一致性。-一种自适应。
+	其中的两个核心：Layout Element和Layout Controller（概念）
+	Layout Element：就是一个RecTransform的UI物体。
+		width、height（min、Preferred、Flexible）最小、中等（常用）、最大（从左到右有空间就会分配对应空间）
+	Layout Controller根据这些数据进行自动排版。
+
+-Layout Element组件（注意和上面的核心不同）
+	是一个最基础的Layout Controller，可以输入数据（宽高上面的六种类型）
+	
+-Content Size Fitter组件
+	排版中需要一个layout element的大小和它的内容匹配上。
+	Horizontal 水平和内容匹配 Vertical是竖
+	Content Size Fitter一般单个作用没有多大作用，需要搭配其他排版组件一起使用。
+
+-Layout Group
+	Grid 网格、Horizontal水平、Vertical 垂直排列
+	-均是Layout Controller。
+	比如Grid以下基础的属性：
+		constraint 控制行和列的个数。
+		spacing 控制子物体之间的间距。
+		padding，上下左右的空隙
+	
+	除开Grid在其他得属性：
+		Control Child Size是否控制子物体的大小
+		Use Child Scale，在排版时是否考虑子物体的scale
+		Child Force Expand：是否在有额外可用空间时将子物体放大填充
+
+
+	所以一般对滑动窗口中添加UI物件使其自适应并且可以排版：Layout Group + Content Size Fitter - 在Content上即可。
+	UI排版例子：1.竖着按钮大小不同的滑动窗口 2.一段文字存在一定背景，并且存在自适应。（注意，自适应（Content Size Fitter 是基于Auto Layout核心来的，所以，如果控制父物体去自适应gameject子物体，需要加上对应的group方可生效 ））
+
+-使用Anchor进行UI自适应
+	UI自适应包括了如何应对不同尺寸的屏幕。
+	Anchor Ratio（长宽比）不变，可以适应不同的分辨率UI位置不变。（一开始Canve - 适应屏幕选项调整就好了）
+	如果Anchor Ratio不一样，我们需要Anchor来定义各个面板组件的位置。
+		定义锚点 与父物体之间关系罢了，自适应。
+	Recall：anchor决定了一个UI物体被固定在其根物体的哪个位置（中、左上、右下等）
+
+
+
+
+
+---------------------------------
+游戏暂停功能
+	一个简单的实现方法：Time.TimeScale = 0(场景的时间流动暂停即可 - 只针对小项目)
+	（成熟的解决方案思路：设置状态枚举然后通过委托广播的方式告知角色或者UI是否能够进行操作）
+	会产生很多问题：
+		1UI动画被屏蔽了
+		2代码中的Update也还在运行的。
+		 
+	
+	1.为了让我们操作UI界面，可以将UI相关的Animator 设为unscaled time （默认是受到Time.delatime的影响的-动画）
+	2.屏蔽任何多余的玩家输入，我们可以可将当前正在暂停的状态记录下来，并作为玩家输入的判断条件。
+ 
+	这样可以解决一部分的情景，但是不好应对打开多层UI界面的情况。
+	比如：先打开界面1，在打开界面2（两个界面先后打开，都会将ScaleTime设置为0，但是一旦先关闭2，那么如果打开ScaleTime为1的话，那么界面1存在的场景下时间继续流动了？合理吗？）
+
+-UI界面的层级管理（多窗口协调）
+	为了更好的管理同时打开多层UI界面的情况，可以使用Stack实现，这样在玩家关闭最后一层界面取消暂停即可。
+	-非常好实现捏。
+
+
+
+UI优化入门
+	使用不当容易造成不太被轻易法线的性能问题。下面会介绍一些基本的优化方案。
+
+1.动静分离：
+	Canvas大致的工作原理就是根据子物体中的UI Element去生成一系列的Mesh交给GPU去渲染，于是只要canvas的任何一个物体存在变动，那么整个mesh需要重新生成！	
+	解决方法：可以把完全静态的物体（完全不会存在变化的）和动态的物体（比如UI动画）分在两个canvas里，这样重新生成的Mesh影响就会变成局部的了。
+	（每个canvas都是一个独立的个体，包含子父对象）
+	
+
+2.减少不必要的射线检测。
+	许多UI组件上都有Raycast Target选项，默认为true。
+	没有一个射线检测的目标，引擎就会多做一次检测，
+	这种功能应该只会在可互动的UI组件上用。
+	
+	如果整个canvas都是不可互动的话，移除graphics raycaster组件。
+
+3.尽量少用Layout Group
+	虽然很方便，但是寻找的过程是通过GetComponent函数实现的，这是一个很昂贵的函数
+	解决方案：与其直接使用layout Group，我们可以在代码手动计算layout的位置。
+	
+4.昂贵的UI动画
+	在UI中使用Animator来制作UI动画是最为方便的选择，但是Animator会迫使其中的UI元素在每一帧都重新去更新，即使当前的动画是静止的。
+	解决方案：尽量在代码中使用Tweening系统来制作UI动画。
+	
+
+练习：
+	1.制作一个在水平方向上大小不变，但在垂直方向上会随着文本自适应的对话框。
+	2.游戏暂停处理... 上面的另一种思路。
+	3.UI界面优化。
+	
+	
+	
+		
+	
+		
+				
+
+	

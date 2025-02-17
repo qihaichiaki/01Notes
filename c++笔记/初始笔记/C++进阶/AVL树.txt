@@ -1,0 +1,201 @@
+map底层 --
+AVL树（二叉树演化而来）  两位俄罗斯数学家发明   -- 高度平衡二叉搜索树
+	数据接近有序或者有序二叉树将退化为单支树，查找元素效率低下。
+	向二叉搜索树插入新结点，保证左右子树高度差的绝对值不超过1（插入两个 ......） -- 任意的左右子树高度差均不超过1
+
+	高度 -- 时间复杂度：log2 N
+	通过高度来控制排平衡
+	左右字数高度之差（平衡因子）的绝对值不超过1（非必须，右子树 - 左子树高度） --（非必须：也可以不用，用的话方便实现）
+	
+
+
+实现：
+	template<class K, class V>
+struct	AVLTreeNode
+成员：
+	* left	nullptr
+	* right
+	*parent   // 三？
+	pair<K, V> kv;
+	int _bf //平衡因子	（一种实现方式）	0
+	插入一个结点，就更新一个平衡因子
+
+·		 
+class AVLTree
+	Node* root = nullptr;
+
+
+insert() 
+ -- 先利用搜索二叉树的结构插入 - 非递归
+	cur、parent
+	比较大往右走，小往左走。相等返回false
+	cur->parent = parent;
+
+控制平衡
+--然后更新平衡因子：
+	1.新增在右，parent->bf++;  新增在左，parent->bf--;
+	2.更新后，parent->bf == 1 || -1 （子树高度是否发生变化决定是否往上更新） -- 说明parent插入前的平衡因子为0，说明左右子树高度相等，插入就高度变化了。
+	3.更新后平衡因子为0，就不需要往上更新。
+	4.更新后，parent->bf == 2 of -2,说明之前就是1or-1，打破平衡，parent所在子树需要旋转处理。
+	5.更新后，parent->bf > 2 or < -2 不存在。存在的话之前发生错误。assert报错即可
+--bf == 2进行旋转调整：
+	// 旋转处理：
+		旋转成平衡树、2保持搜索树规则。
+	1 -> 3 -> 5
+	3->1, 3->5    	左旋转			ppNode
+	归类：					1（parent） 
+	1左单转				h		0（subR）
+		具像图：无限多种情况		    h （subRL）                  h	
+			h == 0；
+			h == 1； 		
+			h == 2 存在九种形状 3 * 3
+  			h == 3 ......
+	右边高了，左边需要往下面按。		
+	parent->bf == 2 && cur->bf == 1  	左单旋（subR靠右的插入）
+	void RotateL(Node* parent)	修改6个指针
+		Node* subR = parent->right;
+		Node* subRL = subR->left;
+
+		parent->right = subRL;  // 注意parent更新
+		if(subRL) subRL->parent = parent;(subRL注意可能为空)
+		
+		subR->left = parent;
+		Node* ppNode = parent->parent;  // 记录上
+		parent->parent = subR;
+		// 此时还存在情况	subR->parent	
+			1.parent是整棵树的根
+			2.parent是子树的根。
+		if (ppNode  == nullptr)    
+		{
+			root = subR;
+			subR->parent = nullptr;
+		}
+		else
+		{
+			if(ppNode->left == parent) ppNode->left = subR;
+			else ppNode->right = subR;
+			subR->parent = ppNode;
+		} 
+		parent->bf = subR->bf = 0;  // 注意别忘了修改平衡因子		
+
+	2.右单旋				pphead
+					parent
+				subL		h
+			h		subLR
+		RotateR(Node* parent)
+	和左单旋类似：左边高，将右边压下去
+	parent->bf == -2 && cur->bf == -1（subL靠左的插入）
+		Node* subL = parent->right;
+		Node* subLR = subL->right;
+		
+		parent->left = subLR;// 注意parent更新
+		if(subLR) subLR->parent = parent; //subLR 注意可能为空
+		
+		subL->right = parent;
+		Node* ppNode = parent->_parent;  // 记录上
+		parent->_parent = subL;
+		// 此时还存在情况	subL->parent	
+			1.parent是整棵树的根
+			2.parent是子树的根。
+		if (ppNode  == nullptr)    
+		{
+			root = subL;
+			subL->parent = nullptr;
+		}
+		else
+		{
+			if(ppNode->left == parent) ppNode->left = subL;
+			else ppNode->right = subL;
+			subL->parent = ppNode;
+		} 
+		parent->bf = subL->bf = 0;  // 注意别忘了修改平衡因子	
+	
+	上述旋转插入前均为高度为h的AVL子树，h>= 0
+
+旋转的价值和意义：
+	子树（整颗）平衡
+	降高度（高度恢复到插入之前的样子）
+		
+
+	 3.双旋转		
+	上面两种是纯粹的左边高和右边高，那么中间高呢？
+	-左右双旋
+		基于上面右单旋的抽象模型：
+				-2
+			1	60
+			30		h
+		a 		b
+		右单旋是a+1即在a插入的，那么如果是b插入呢？（左单旋的模型类似）
+		此时如果用右单旋，只会从左边高变成了右边高
+		将上述模型b在分解一下：
+
+		ed：
+			90
+		30		d（h）
+	（h）a 		60
+		b（h - 1）     c（h - 1）
+		此时在b或者c插入，必然会引发b或者c的高度变为h，就会引发双旋。
+		1.对b插入
+			1.先对30进行一个左单旋
+			90
+		60		d（h）
+	      30	      c（h - 1）
+     （h）a         b h    
+			2.90右单旋
+		0
+		60
+	（0）30	      90（1）
+     （h）a         b h    c（h - 1） d（h）	
+		上面只是对b插入的演示，2.当对c插入的时候，平衡因子就会发生变化。此时上述c和bh值交换，30的bf值变为-11（左插入--）90的bf的值为为0
+		3.另外，还存在一种极端情况：h = 0
+			90
+		30	
+		60为新增。
+			
+			90
+		30
+			60
+		右单旋
+			90
+		60
+	30
+		左单旋：
+			60
+		30		90
+		
+
+	-右左双旋 和上述类似，对称。
+		RotateR(parent->right);  // 右单旋
+		RotateL(parent);  // 左单旋
+		// 针对不同的结点插入修改fb（平衡因子）
+			
+
+
+
+	三种插入情况：
+	中间分的左树新增。
+	中间分的右树新增。
+	中间无子树，h的均为空树。引发中间结点新增，引发双旋。
+		会导致旋转过程不变，但是平衡因子的更新需要分别处理。
+		上述三种情况，旋转方式均不变，只是bf会变
+	
+如何验证AVL树？中序？层序？都不靠谱 -- 均和搜索二叉树类似
+	平衡因子？-自己设计的 不好比较 -- 比如即使参赛者又是裁判。
+	相对公正的：求一个树的高度即可：
+		-后序的去走：先求左子树高度，再求右子树高度。自己高度就是左右子树打的加一即可。可以使用max函数。
+		并且也不能只判断根结点，要每个树都要进行判断。--AVL树的性质
+	
+	特殊情况：是平衡树，但是平衡因子不对 -- 左右双旋不对
+	
+	生成随机数的时候，srand关闭就可以保持上次插入的随机数序列。 -- 创造闭线
+	C语言随机数限制：30000个 在多的话就是重复的
+	
+
+
+了解平衡即可。  -- AVL的删除 -- 了解（）1.按照二叉搜索树去删 2.更新平衡因子 出现问题需要进行旋转
+
+	AVL树增删查改就为logN
+
+
+
+

@@ -1,0 +1,114 @@
+Linux软件包管理器
+	-yum
+
+
+
+
+
+
+Linux开发工具：
+vim：编辑器 --- 只能写代码    （功能最强大的文本编辑器，学习成本高）  也可以创建文件
+	（主流开发中写代码还是在Windows环境下联通Linux进行Linux开发）
+
+vim是一款多模式的编辑器
+	vim刚打开模式（默认）命令模式
+    如果想写东西  输入i  --自由编辑（插入/编辑模式）显示INS...     回到命令模式 按ESC即可
+
+在命令模式中
+	shift：切换光标闪烁到底行  （底行模式）
+	底框：
+
+
+
+
+命令模式中：常见命令
+
+	yy 复制（前面加数字  nyy  具体复制从当前行开始往下数n行进行复制）
+	  p粘贴 在当前行的下面（np 粘贴n行）
+	u撤销（撤销操作）ctrl r撤销u的操作
+	shift g ：光标定位到文件的结尾 gg:光标定位到最开始    nshift g（将光标定位到文件的n行）
+	shift 美刀($/4) 整行最末尾  shift ^(6) 整行最头  nw 以n倍单词为单位往后 nb以n倍单词为单位往前移动
+	可以使用 h左 j下 k上 l右 进行上下左右移动（记忆方法：h左   j（jump）下   k（king）上   l右）
+	ndd:从当前行删除n行（和p使用就是剪切）
+	shift ~ 大小写切换
+	shift r -- rep..模式 替换模式    替换
+	nr 单词  从当前字符开始往后n'个替换成对应单词
+	nx（shift x）当前光标位置...n个字符删除
+
+底行模式：
+	w保存（写入），q退出（什么都不输入）！（强制性q!强制退出 w! 强制写入）
+		set nu：显示行号  set nonu 不显示行号
+    如果分屏，光标在哪里，切到底框就在哪里
+	分屏： vs 文件名
+	
+	！后面跟指令可以进行Linux指令操作（cmd）  即不退出vim执行命令
+
+
+   底行模式中退回命令模式 ESC
+插入模式无法进入底行模式
+
+配置vim进行代码编写：（原本vim就相当于笔记）
+需要了解一些vim配置的原理
+用户文件下：
+.vimrc
+配置到  vim .vimrc
+	然后往这个里面添加各种配置项即可比如 set nu
+插件放入 .vim
+放入此文件夹。
+	https://gitee.com/HGtz2222/VimForCpp?_from=gitee_search 网址
+	curl -sLf https://gitee.com/HGtz2222/VimForCpp/raw/master/install.sh -o ./install.sh && bash ./install.sh  不建议在root下进行
+支持cent7版本，直接将vim就配置好了。
+
+51 52 53  设置为4缩进就是4了，打开配置文件即可
+userdel -r 删除普通用户
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Linux默认安装gcc  但是g++不一定安装
+yum install -y gcc-c++
+gcc专门的c语言编译器，g++也可以编译c，但是c++
+	-v 查看信息
+先用vim编辑一个源文件   gcc/g++进行编译，将编译后的文件进行./运行即可
+	-m32、64（需要配置一些文件）切换运行环境
+
+程序翻译的过程：
+	文本的C - 计算机二进制
+1.程序的预处理阶段
+（a.去注释 b.宏替换 c.头文件展开 d.条件编译 ...）后还是c语言
+2.编译
+（C -> 汇编）
+3.汇编
+（汇编 -> （可重定向二进制目标文件）二进制文件.o）
+4.链接（Windows下是obj）
+（链接 -> 将多个.o -> 合并成一个可执行）.exe
+
+
+
+
+
+普通用户执行sudo命名 ： 用户is not in the sudoers file.  This incident will be reported.在未配置的情况下
+vim /etc/sudoers  添加到信任列表
+找到此行位置：%wheel  ALL=(ALL)       ALL
+下面对应位置添加 用户名 ALL=(ALL)       ALL
+即可
+
+利用 sudo进行验证
+
+
+
+
+
+
+

@@ -1,0 +1,432 @@
+类银河恶魔城游戏：
+https://www.bilibili.com/video/BV1cM4y1p7RF?p=34&spm_id_from=pageDriver&vd_source=f28361126829017169715ae17844b2f6
+103
+
+Gizmos
+	DrawLine 画一个向量
+	DrawWireSphere 画一个中心的圆框
+--在函数OnDrawGizmos 进行绘画
+	
+
+Physics2D
+	Raycast 向量检测，Vector2.指定方向，指定检测的图层模板（Unity中的Layer-LyaerMask）
+	OverlapCircleAll() 圆形碰撞检测，返回一个Colloder2D的数组。
+
+	
+
+RaycastHit2D
+	通过光线投射返回检测物体的物理信息，包括：distance;距离的距离
+
+Rigidbody2D
+	属性：
+		重力刻度-gravityScale
+	对象属性：
+		速度-velocity
+		isKinematic 在父物体上即跟随运动效果
+		constraints 模拟自由度（控制x、y、z轴的旋转）通过RigidbodyConstraints2D.FreezeAll全部冻结
+	对于平台是否可以向上跳，增加一个platform Effector组件，在物理效果中进行应用即可。
+		
+		
+
+Collider2D
+	对象属性：
+		enabled 是否启用碰撞器 - false为触发器不可更新状态，即设置了就不可更新
+	OnTriggerEnter2D(collider2D collision) 当另一个对象进入附加到该对象的触发碰撞体时发送（仅限 2D 物理）。
+		获取其碰撞体。
+	
+--注意，能否发生碰撞检测的，需要满足三个条件：
+	2 个游戏对象都有 Collider
+	至少有一个游戏对象有 Rigidbody
+	2 个游戏对象保持相对运动（一个 Cube 放在 Plane 上，不会产生碰撞，因为没有相对运动）
+
+
+Time
+	属性：
+		deltaTime float 两帧之间的时间？基本上是以秒的时间进行流逝的
+		timeScale  时间刻度，控制当前游戏的时间流动，0暂停时间，1恢复时间流动。。注意玩家行动也需要进行限制。具体在Player的更新脚本中进行控制
+
+
+
+IEnumerator  -协程函数
+	返回值为此的函数，一般含有：yield return new WaitForSeconds(秒数);  等待多少秒 WaitForFixedUpdate();
+		（yield return null;）->将一个协程暂停，并在下一帧继续执行。·
+	使用函数StartCoroutine("函数值", 参数)调用返回值为IEnumerator的函数
+		StartCoroutine(函数名(参数))
+	协程函数（类似于多线程？）可以提前准备一个变量Coroutine存储StartCoroutine的返回值，不为null说明此协程开启的，为了不实现累加，可以将其关闭，重新开启协程。StopCoroutine即可。
+		
+
+InvokeRepeating();  -- 重复进行多少秒 参数：调用函数对象、延迟、重复率
+	私有方法的话注意必须在对应的对象上调用。 
+CancelInvoke(); 在当前组件上Mon.. 停止所有Invoke行为。
+Invoke可以调用对象的私有方法。比如：  （注意，一般不建议使用）
+	fx:
+		private CancelRedBlik()
+			CancelInvoke();
+
+	其他：
+		fx.Invoke("CancelRedBlik", 0);即可调用 0延迟
+		可以设置延迟几秒进行调用。（如果存在传参使用协程会更好）
+
+	
+
+SpriteRenderer
+	对象的属性
+	bounds 界限？
+		size.x  该精灵图的宽度
+
+
+	Material 材质
+		GUI -- 
+
+	new Color(rgb, a部分(透明度？))
+
+
+Color
+	属性：
+		clear	完全透明(0, 0, 0, 0);
+		new Color(R, G, B, A) 踩坑记录：unity需要/255f才能正确定义颜色，否则会显示成白色
+
+Gradient -可以选很多颜色，造成过度效果（比如日出、日落的效果）
+		Evaluate(float x) 在x（0-1）点对应的颜色是什么
+		
+
+
+
+GameObject
+	SetActive() 设置对象是否存在或者消失
+	activeSelf 是否存在 - 即处于活动状态
+	find(string) 在当前游戏中查找此名字的游戏对象。
+	
+
+Instantiate(GameObject);  //实例化对象，创建对象  返回一个新的对象
+	还存在三个参数：transform.position 位置信息，transfrom.rotation 旋转信息 默认为直接创建对象，否则指定父对象，在父对象下创建（父子对象利用transform进行控制）
+	
+
+Quaternion
+	属性：identity; -不需要改变旋转，或者跟随父对象旋转？。表示没有旋转，即还原原本的状态。设置旋转为000
+	
+
+
+
+
+
+Destroy();  销毁对象 可以存在第二个参数，表示延迟多久后进行摧毁。
+
+
+
+数学函数
+	Random.Range(1, 3); 范围1到3生成随机数
+		value 0~1 float
+	Mathf.Infinity; 数学无限大
+	Mathf.Clamp(x, -1, 1); 在给定的范围内返回值直接返回，小于返回最小值(x < -1)，大于返回最大值(x > 1)。
+	Mathf.Clamp01(x); // 将值限制于0和1之间返回（类似于上面传参：0， 1）
+	Mathf.RoundToInt();  // 对float进行四舍五入返回int
+	Mathf.Lerp(float a, b, t);  // 线性差值。t为[a, b]的一个比例值（0~1）比如[20, 30], t=0.5->25
+		是一个非常常用的函数-非线性动画
+			Vector3.Lerp(起点, 终点, 比例值)（一般用0.3以下）
+			-从快到慢的一个效果，小于一定值时等于我们到达的值。不断逼近。
+			非线性动画看着舒服？
+
+
+
+
+
+
+transfrom
+	Rotate(0, 0, 0); // 旋转变化
+	localScale 放缩变换
+	childCount 当前对象的所有子对象的个数。	
+	GetChild(i) 获取对应子对象，i为编号，从0开始。
+		注意：获取的子对象只能时一级子对象，后续的获取不了哦。
+	TransformPoint(物体坐标); 将物体坐标转换为世界坐标。
+	SetParent 设置父节点（将对应gameObject移到对应父结点下）	
+
+
+	想让场景里transfrom中的角度发生对应的变化
+		transfrom.rotation = Quaternion.Euler(Verctor3)  // 旋转变化-和unityxyz旋转看到的一至效果
+		(Quaternion-四元数)
+		transfrom.rotaion.eulerAngles;  // 当前旋转转换为欧拉角 - 在unity编辑器看到的xyz那个东西。
+		
+
+		
+
+		
+			
+
+Camera
+	main.ScreenToWorldPoint(); 返回Vector2
+		// 将点从屏幕空间变换为世界空间。（比如Input获取的鼠标坐标原本就是屏幕空间，需要将其转换为世界坐标）
+
+Input
+	mousePosition 玩家鼠标在屏幕中的位置。
+	GetAxisRaw("");  // 比如水平输入Horizontal
+
+
+
+Vector2（3同理）
+	对象属性：
+		normalized 归一化 - 单位圆。
+		magnitude。向量的长度（只读）
+	方法：
+		MoveTowards(起始位置, 目标位置, 速度 * 每帧刷新时间(deltaTime) -- 相当于每帧位移多少);  此时会产生位移效果，并且赋给改变位置对象的transform
+		Distance(); 计算两个位置的位移
+		Lerp（a, b, t）在a和b之间按t进行线性插值。t为时间，比如t为0为a，t为1为b，t为0.5就是其的中间值。
+		Cross 向量之间的叉乘（只有3才有）
+		
+		
+Slider 滑块组件
+	maxValue：整体最大值
+	value：当前值
+
+Animator 组件
+	SetBool 设置触发条件bool属性的
+	SetTrigger 设置触发器属性的。
+	
+
+
+
+public System.Action onFlipped; 事件	
+		onFlipped();  表示何时触发事件
+		onFlipped += 表示添加什么函数，触发事件的时候会调用添加的函数。？
+
+
+
+
+Dictionary<key, value> 字典
+	TryGetValue(key, out 类型 value);存在返回true，value存在值，类型为value类型
+
+
+
+
+MonoBehaviour.OnValidate()
+	只有编辑器功能，Unity调用时，脚本被加载或一个值在检查器中改变。在检查器中的值发生变化后，使用它执行一个操作;例如，确保数据保持在一定范围内。
+
+
+System.Action 事件名 定义事件，事件名 += 用来装载函数，事件名(); 表示调用这些函数。 -= 用来卸载函数。如果不存在函数（没有装载），会报错null。
+
+OnDisable	在函数被禁用和摧毁时调用此函数,一般事件对象需要在这里卸载装载的函数
+
+OnValidate unity编辑器对此进行改变时调用的函数。
+
+
+
+
+
+GetComponents获取多个组件的集合体，返回的就是对应类型的数组。返回子对象时时搜寻的全体子对象。
+UI组件：
+	TextMeshProUGUI
+		fontSize 文字大小。
+		text.Length 文字个数
+	
+	Button 按钮组件
+		删除此按钮上的所有监听。onClick().RemoveAllListeners();
+		添加监听器：onClick.AddListener(() => 执行的函数 );
+
+
+
+OnApplicationQuit()  应用程序退出时执行的函数。
+
+
+
+AssetDatabase	用于访问资源并针对资源执行操作的接口。-编辑器内UnityEditor
+	GetAssetPath(string);返回资源的路径名称。
+	AssetPathToGUID(string);  返回资源路径对应的GUID（全局唯一标识符*唯一）
+	FindAssets(string, string[]); 搜索资产对象。 第一个参数为搜素数据（提供名称、标签、类型）第二个参数为（过滤字符串）即从那里开始搜索的文件夹。比如Assets/Data/Equipment  返回一个string即资产路径   返回资产对象为一个string数组，里面是对应路径的GUID。
+	GUIDToAssetPath(GUID);  //根据GUID返回资产路径
+	LoadAssetAtPath<类型名>(资产路径)  返回资源路径的资源对象
+
+
+
+SceneManager 场景管理器
+	LoadScene 加载场景，参数可以是索引或者名称或者路径
+
+
+
+
+AudioSource 音乐效果管理
+	Play() 播放音乐
+	Stop() 停止播放
+
+AudioMixer --output 综合控制整体音量输出
+	SetFloat(string, value);  // 设置对应string的混合器的音量输出。注意string需要在对应混合器导出脚本的设置的名字为定。
+
+
+ParticleSystem 粒子系统
+	Play();  唤醒播放
+	Stop();  休眠停止
+
+
+CinemachineImpulseSource  屏幕晃动效果
+	m_DefaultVelocity  设置晃动大小 Vector3
+	GenerateImpulse() 产生冲动。-应用
+
+资源加载：Resources.Load 运行时加载资源 （到时候可以将很多音频文件进行一个载入）
+-文件夹必须名为Resources
+	Load(str);  // str 相当于一个文件名-无后缀  也可以是相对于Resources的一个相对路径
+
+
+
+ToString(str)
+	str:
+		p:百分数
+			2：小数精度
+			（p2：%0.00）
+
+
+LineRenderer 线段渲染器
+	positionCount 获取设置线段的点个数
+	widthCurve 设置曲线，用于描述线在其长度上各个点处的宽度。
+		Evaluate 用于获取一个程度的特定值（0~1之间）
+	SetPositions() 设置点
+		
+	
+
+------------------------------------------------------------------------------------------------
+
+--预处理 UNITY_EDITOR
+	有些功能时unity编辑器特有的功能，打包时利用的时UnityEngine会找不到这些功能，会出现报错 需要#if 进行预处理。
+
+---创建接口关键字C#	interface - 接口的创建类似于纯虚函数，继承的类必须要实现里面的虚函数。ref输入参数
+system.Linq;
+FindObjectOfType<>()寻找对应类型的类
+	<>里找的是什么行为的，比如MonoBehaviour，
+	ofType<要接受的脚本类型>()
+	
+	返回可以使用IEnumerable<类型> 进行接受
+
+system.IO   c#中的文件操作
+	Path类，和路径操作相关类
+		Path.Combine 合并两个路径字符串，比如目录路径+文件名字 = 此文件的路径，即可使用此进行组合。比如：D:\game 和 gameData.txt 就可以组合为 D:\game\gameData.txt 进行返回
+		Path.GetDirectoryName(string); 获取此路径下文件的目录（D:\game\gameData.txt -> D:\game） 
+		
+
+	
+	Directory 对目录和子目录进行创建、移动、枚举的静态方法。不可被继承
+		CreateDirectory(String) 指定路径创建所有的目录和子目录，除非已经存在
+
+	
+	检查文件是否存在
+	Flie.Exists(文件路径);
+
+通常游戏保存路径因为存在不同操作系统的原因，我们无法得知路径设置在哪里（疑惑，不可以直接让用户去选择么（但是一般这只是存档而已，也不会占用太大内存 + 安卓总不能一开始让用户设置存档位置吧））
+	--使用Application.persistentDataPath 应用程序持久数据路径。
+	-unity内置的数据路径。Application.dataPath;(适应多平台) -不同平台都会不同
+
+
+JsonUtility  json操作
+	序列化：ToJson(对象, 是否漂亮的打印？) 返回一个字符流
+	反序列化 FromJson<对象类型>(string 字符流);
+	
+注意，using可以直接在代码中进行使用而不是只写在文件的首行。比如下面的打开文件流进行写入文件操作
+	using(FileStream stream = new FileStream(文件路径(全), FileMode.Create));  // FileMode.Create-创建文件  FileMode.Open 打开文件
+	{
+		// 执行成功？
+		using(StreamWriter writer = new StreamWriter(stream))  // 对创建出来的文件进行写操作  //StreamReader 读文件  ReadToEnd() 读完即可
+		{
+				writer.Write(string);  // 进行写即可
+		}	
+	}
+
+
+
+
+
+
+C#中的try - 异常处理
+// 在游戏中通常创建文件、序列化、反序列化的时候进行异常处理
+try
+{
+	//....
+	// 能抛出异常的函数。只要调用C#中的函数均可抛出异常
+}
+catch(Exception e)
+{
+	//.....
+}
+
+
+C#命名规范：
+	1.字段名使用小驼峰
+	2.方法名、类名、命名空间：大驼峰
+	3.常量：全大写+_
+	4.enum使用大驼峰
+
+
+		
+-------------------------------------------------------------------------------------------------
+
+Application 对应用程序运行时数据的访问权限
+	persistentDataPath  应用数据持久化路径。
+	quit - 退出程序  --退出游戏
+
+
+
+
+接口：
+IPointerDownHandler
+	-鼠标触发事件 鼠标点击
+	需要重写实现的函数：OnPointerDown(PointerEventData eventData)鼠标点击发生的函数 指针点击
+
+IPointerEnterHander
+	-鼠标触发事件 鼠标悬浮（输入）
+	实现函数：OnPointerEnter
+IPointerExitHandler
+	-鼠标触发事件 鼠标退出
+	实现函数：OnPointerExit
+
+ISerializationCallBackReceiver（对于unity序列化不支持的数据类型进行支持）
+	OnAfterDeserialize  实现此方法在unity反序列化对象后接受回调。
+	OnBeforeSerialize  序列化对象前接受回调
+	（例子：对字典进行可序列化操作：1.在序列化前利用List对当前字典的key和value进行保存 2.反序列化后将key和valueList中的值存入当前字典中  注意保存对象使用前需要进行一个clear()）
+
+
+
+
+
+
+
+System
+	Guid.NewGuid().ToString();  // 每次调用会生成一个新的GUID，全新的。用于区分不同的物品
+	
+
+
+
+
+
+	
+
+StringBuilder 字符串生成器
+	ToString();  // 生成string类型的数据。
+	Length长度
+	AppendLine();  // 转换到下一行去书写string text
+	Append(String);  // 添加文本数据
+	
+
+
+
+
+
+unity显示适配：
+	让私有对象显示：[SerializeField]
+	空行 [Space]
+	让没有挂到游戏对象组件上的显示数值 [System.Serializable],可序列化 ，序列化类后，显示的数值由检视面板的值确定.即挂载到检视面板上去。
+	[Range(0f, 1f)]用来限制下面在unity中可视化数据的范围。
+		
+	在对应的可脚本对象中输入[CreateAssetMenu(fileName = "New Item Data", menuName = "Data/Item")]
+		(fileName 为创建对象默认给的名字，menuName表示创建菜单里的层级
+	[TextArea] 对下面的string存在一个非常大的区域，适合编辑大型文本。
+
+	[ContextMenu("删除保存文件")]  --在inspe窗口右键会显示此属性。并且执行对应函数
+	[Header("")]  在检视窗口显示头部信息（下面必须存在一个公开或者可序列化属性)
+	[Tooltip("这是一个提示")]
+	
+	
+
+	
+		
+
+
+		
+
+
+	

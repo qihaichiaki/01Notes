@@ -1,0 +1,8 @@
+bool，返回真假true或者false可以用于逻辑语判断。
+qsort函数  数组排序函数
+参数void *base  数组名
+size_t nmemb  数组长度
+size_t size 类型（每个元素的大小）
+int （*compar）（const void*,const void*）
+决定着排序方向。比如创建一个cmp函数，int类型，然后return *(int*)a -*（int*）b；a-b为正序，由小到大，b-a为逆序，由大到小即可。
+头文件 stdlib

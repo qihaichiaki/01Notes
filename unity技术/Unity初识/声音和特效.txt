@@ -1,0 +1,61 @@
+AudioSource、 AudioListener
+发声		接受声音
+
+音频文件起始为audio clip（文件夹里）
+相机-默认添加接收声音。
+
+AudioSource- 声源
+Mute 静音
+Play On Awake 场景加载时自动播放
+Loop 循环播放
+Priority 优先级？
+Volume 音量
+pitch 音高（音频播放速度会受到影响）
+Spatial Blend--2D音频：声音没有位置、范围大小-五空间性 3D模拟真实环境，只在当前位置进行播放声音。
+API：
+	Play(); 播放声音 重复播放会被打断
+	PlayOneShot();  播放声音 但是如果对应音频正在播放不会进行打断
+	Stop()  停止播放音频。
+	Pause() 暂停
+	UnPause() 继续
+
+
+资源加载：Resources.Load 运行时加载资源 （到时候可以将很多音频文件进行一个载入）
+-加载资源操作 - 很贵的操作。
+-文件夹必须名为Resources
+	Load(str);  // str 相当于一个文件名-无后缀  也可以是相对于Resources的一个相对路径
+
+
+-声音播放器-
+
+
+
+----粒子系统-----
+本质：1.创造新的粒子，消灭旧的粒子，根据时间模拟粒子的形态
+
+粒子寿命：Start LifeTime
+颜色...
+一定频率生成新的粒子：Emission
+一定范围：shape
+
+粒子可受重力影响：
+Gravity Modifier
+粒子的材质：Renderer
+粒子根据当前生命具有不同颜色、大小、旋转
+Color/Size/Rotation Over Lifetime
+粒子可以根据当前生命具有不同的速度
+Velocity Over Lifetime；
+拖尾：Trail
+
+
+Render Texture 0装当前某相机的一个图像Texture
+ -用相机看到的画面渲染到Render Texture上。
+
+
+
+
+
+
+
+	
+	

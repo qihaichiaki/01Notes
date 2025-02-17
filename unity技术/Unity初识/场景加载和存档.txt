@@ -1,0 +1,56 @@
+场景：GameObject的集合。
+
+同步加载sync：游戏卡住（停止当前游戏的所有线程）等加载完毕切换到新场景。
+异步加载async：游戏继续运行，场景在后台加载，加载完毕后切换到新的场景。
+（常见）
+
+Scene 场景文件。buidIndex 打包时的顺序。数字越小优先级越高。
+	name、场景名
+	isDirty：场景是否被修改
+	GetRootGameObjects：获取场景中的所有根物体。
+
+SceneManager：管理场景的工具：
+	GetActiveScene();  获取当前场景
+	GetSceneByBuildIndex();  // 通过buidIndex 获取场景
+	GetScenneByName  通过文件名获取场景
+	LoadScene();  同步加载场景（参数可为场景的name或者build）--如果场景变得很复杂，这么做会让游戏停顿一段时间，会破坏游戏体验的。
+	LoadSceneAsync();  异步加载场景
+		返回一个AsyncOperation的变量
+			isDone 是否完成
+			float progress：进度(0 - 1) 如果allowSceneActivation 为fase，progress会卡在0.9
+			Action<AsyncOperation> completed:加载完成时触发的事件
+			bool allowSceneActivation ：是否允许场景加载完成时自动切换至新场景。
+		
+		异常加载的步骤：
+			发出异步加载的指令，得到变量
+			将allow ... 设置为false；  -- 将其变成可控
+			黑屏用进度条将progress展现出来
+			加载完成将allow设置为true；
+
+保持在场景之间的物体：
+	加载新的场景时，原本场景物体全部都会被摧毁。
+	有时候我们希望一些重要的物体在场景加载时存活下来。
+	DontDestroyOnLoad() 标记一个物体为不被场景加载所摧毁。
+	-在想留下来的物体加上DontDestroyOnLoad(gameObject)即可。
+
+
+
+------------------------------------存档系统-----------
+unity存在一个简单的保存信息方法 - PlayerPrefs
+（一般游戏开发需要自己设定保存游戏格式，保存到哪个文件，设置加密等等）
+	PlayerPrefs想象一个存在游戏外的Dictionary，用key访问value
+	SetString、GetString、还有int、float版本。
+
+PlayerPrefs限制：1.不安全，存档数据没有加密。2.支持的类型有限。3.性能不好。4.对多平台没有支持。
+一般操作是利用的C#里的文件读写。文件IO流。
+
+写入文件：Flie.WriteAllText(路径 + "/Save.txt", string);  // 总路径  内容
+读：File.ReadAllText(path)
+
+---但是一些数据保存时-比如类，需要将其转换为字节流-（文本），存入数据。一般利用JSON进行转换。
+序列化、反序列化。
+unity里使用JsonUtility 。
+但是还是有限制：1.部分数据类型不受支持（字典、多维数组、泛型类）2.不支持null的序列化3.序列化行为不可自定义。
+解决方法：
+	1.unity一些继承序列化的接口，让其支持。或者转换成一些支持序列化的对象
+	2.使用强大的插件！Json序列化插件是：Newtonsoft.Json for Unity

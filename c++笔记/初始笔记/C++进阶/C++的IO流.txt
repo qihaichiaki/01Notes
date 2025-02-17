@@ -1,0 +1,124 @@
+C:
+	printf / scanf	fprintf/fscanf/sprintf/sscanf
+
+
+C++:
+	(菱形继承)iostream -- istream + ostream
+	|
+	fstream -- ifstream + ofstream
+	|
+	stringstream
+
+	c++没有网络相关的库。--
+
+
+istream、ostream除了提供自动识别，还可以提供重载<< >> - 更好的支持自定义对象的流插入和流提取。
+输入 2022 11 28
+C++：cin >> year >> month >> day;
+C:scanf("%d%d%d", &year, &month, &day);  // 多个值默认都是用空格或者换行分隔的。
+
+但是输入20221128：
+	scanf("%4d%2d%2d", &...) - 可以C  -- 也可以%s - 手动去转化
+	C++ - string str - 全拿进来，然后手动分隔。
+
+
+
+-------------------------------------------------
+
+// 循环输入
+while(cin >> str)  - C++			--利用了operator bool  -- ctrl z + 换行-结束（给了一个流结束的标志）  ctrl c - 杀死进程kill -9 
+while(scanf() != EOF)  (EOF == -1)
+
+
+operator(cin, str);
+istream& -------返回
+	一般整形、指针可以做条件的判断 -- 隐式类型的去转换
+	---istream - c++11 -operator bool c++98 - void*
+	可以隐式转换为一个布尔
+
+
+
+--------单参数的隐式类型转换：
+class A
+{
+public:
+	A(int a)
+	:_a(a)
+	{};
+_a;
+}
+
+A a = 1; // 隐式类型转换 - 1构造临时对象，在拷贝构造a，优化后直接构造a。
+那么如果支持自定义类型转换为内置类型呢？
+	operator int()  //   无参数、无返回值类型
+	{
+		return _a;
+	}
+
+
+
+----------------------------------
+C++的文件io流  - fstream -- ifstream（读）、ofstream（写）
+<fstream>
+1文本读写 - 2二进制读写
+2：内存中是什么样子，就如何写到文件中去。
+1：序列化字符串写出去，读回来也是字符串，反序列化转成对象数据
+2-优点：快 缺点：写出去的内容看不见。
+1-优点：可以看 缺点：转化过程较慢
+
+
+ios_base::out 、 binary  --- 写（覆盖写） - 二进制方式
+	app - 追加写 	
+	in - 读 
+
+ifstream ifs("路径")  -- 有缺省，默认in打开
+char ch = ifs.get();  ------------getc  读一个字符
+while (ifs)  // ifs 也有隐式类型转换 - 也是上面的基类实现的 - ios基类
+{
+	cout << ch;
+	ch = ifs.get();
+}
+-- 可以不用close - 默认关闭的
+
+
+
+
+---------
+当向读入a11dr不是全是字符串的时候
+fscanf("%c%d%s")  // C语言这一套
+
+int i; string s, double dl
+ifs >> i >> s >> d;  // 使用流提取  -- 
+但是C语言不好支持自定义类型。自定义对象需要重载流提取。
+
+
+C++的文件流 - 面向对象的方式。-对于自定义类型支持的比较好。。。
+
+
+-------
+需要注意二进制的读写 对于C++的自定义类型 string存在问题：
+_buff[16];
+_ptr
+_size
+_capacity
+---string的结构	指针 -- 写入就是一些地址（堆上的地址）。 但是当程序重新启动，之前的地址已经被释放，直接读入操作系统没有给该地址分配空间，-即野指针问题就存在了。 -用字符数组进行解决。
+
+
+当然，最方便的就是 >>/<< - 就像之前iostram那么用就可以了，非常方便，不用C语言那一套自己控制输入格式。
+
+-----
+字符流：
+stringstream  - istringstream（从字符串解析） + ostringstream（转成字符串）
+	C：stoi... sprintf
+
+-转字符串 - to_string()
+-但是转多个值呢？
+ostringstream - 把多个值转为此对象中存储的string。
+使用<<   str接口就是返回一个字符串。序列化
+
+反序列化：
+istringstream - 将里面存储的字符串（利用构造函数传参进去即可） - 解析为对应想要的每个信息。	
+
+stringstream包括上面的所有接口。
+
+

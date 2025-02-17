@@ -1,0 +1,116 @@
+Unity协程
+	多段代码并行执行。
+	IEnumerator、yield return、StartCoroutine()
+	语法奇怪，为什么就能实现协程的功能。
+
+-IEnumerator 枚举器接口
+	-提供了一种遍历集合的方法。使用foreach循环时使用的就是一个IEnumerator。
+	public interface IEnumerator
+	{
+		bool MoveNext();  前进下一个元素
+		object Current {get;} 获取当前元素
+		void Reset();  重置回第一个元素
+	}
+-IEnumerable 可被枚举接口
+	代表可被枚举这个特性，继承此接口对象必须返回一个IEnumerator名叫GetEnumerator的方法。-获取其枚举器、通过枚举器遍历其中的元素，可以使用foreach循环遍历其中的元素。（C++中的迭代器？）
+	C#自带的大多数据结构都是IEnumerable。
+
+-枚举器的常规使用：
+	IEnumerable<int> sequence = new List<int> {1, 2, 3, 4, 5};
+	IEnumerator<int> enumerator = sequence.GetEnumerator();
+	
+	while(enumerator.MoveNext())
+	{
+		int current = enumerator.Current;
+		// ......
+	}
+
+-迭代器设计模式-
+	迭代器允许我们自定义一个枚举器的行为。
+C#语法 yield
+	使用yield的关键字时，系统帮我们自动生成一个继承自IEnumerable的类，实现我们所写的逻辑（枚举器）
+	1.会记录当前迭代的状态，本地变量值与迭代器在集合之中的位置，通过内部状态机完成的。
+	2，会把yield return x翻译为current设置为x，记录当前状态，暂停执行。（下次执行从yield return开始执行）
+	IEnumerable<int> test(int upto)
+	{
+		for (int i = 0; i < 10; ++i)
+			yied return i;
+	}
+	// 上述函数得到执行的话并不会执行-> 而是通过yied构造除一个类！可枚举变量的类。在后续比如foreach中就可以通过可枚举获取枚举器，一次执行构造出来来的我们所写的逻辑。
+--协程的原理：
+	Unity中的协程利用了迭代器的机制实现了“执行一系列操作”而非“遍历一个集合的功能”。
+	调用StartCoroutine();执行协程，做的事情如下：
+		1.每帧调用MoveNext(); 协程直到遇到yield return。
+		2.通过yield return 返回的Current值，我们做一系列特定的操作.比如waitForSeconds就是延迟下次MoveNext的执行.
+		-MoveNext里面就会执行协程里面的操作,直到遇到yield return
+	
+
+	StartCoroutine(0
+	{
+	  update{
+		if(MoveNext())
+			if (Curent is WaitForSeconds)
+				stop for x seconds;  // 可以利用计时器
+			else if()...
+			//...
+			else
+				// 不会干什么 - 这也是返回null - 节约资源即可
+	}
+
+
+--协程->单线程  巧妙的利用迭代器的yield 暂停机制 = 执行一系列操作.
+
+
+数据结构:
+
+-多维数组.
+n维数组可以使用n个index来索引数据,比如arr[1, 2];
+C# 使用[,]定义多维数组.
+	int[,] 二维  [,,] 三维......  new int[2,3]; new int[2,3,4];  注意写明数组的大小.
+	GetLength(n) 表示数组第n维的长度.
+
+-交错数组
+一般多维数组大小提前决定好的,还有一种多维数组叫做交错数组.大小不完全决定好
+int [][]	 arr = new int[5][]  //第一个维度的大小需要提前定义 - 常规理解多维数组的套路.
+
+
+-树Tree
+	GC标记算法使用了树结构.
+	有向图的一种.表示物体之间的依赖关系.
+
+-栈Stack
+	先进后出
+		Push
+		Peek()  返回栈顶的物体
+		Pop() 栈顶的物体移除并且返回.
+-队列Queue
+	先进先出
+	Enqueue();  放入队尾
+	Dequeue();  对头移除返回
+
+
+对应场景使用对应的数据结构：
+	1.打开许多叠放在彼此之上的UI界面，玩家只对最上方输入：Stack
+	2.获取新物品仅有一个小窗口显示新物品信息（5s和消失）-同时获得多个时，利用queue队列进行存储依次执行
+	3.科技发展多个分支结构 - 树。
+
+-图算法及其应用。
+	深度优先搜索DFS
+		1.选一个方向一路走到底。
+		2.遇到死路了回到上一个路口换个方向继续。
+	广度优先搜索BFS
+		一层层前进。
+		不会一条路走到底。
+		-利用队列的先进先出原则。
+
+-对应的策略模式：
+	1.N*N，玩家在一个方格向四周5*5方形区域进行一次范围攻击，如何得到被攻击的敌人？广度BFS
+	2.判断一个物体所有子物体有没有Box的物体？-深度DFS
+	3.N*N的迷宫找到从起点到终点的一条路径？最短路径呢？-BFS
+				DFS/BFS	
+
+
+-练习：
+	1.使用DFS或BFS实现判断五子棋是否有玩家获胜的算法。
+	2.模拟队列
+	3.不使用Unity的StartCoroutine方法，编写自己的StartCoroutine并且支持yield return null和yile return WaitForSeconds(n)

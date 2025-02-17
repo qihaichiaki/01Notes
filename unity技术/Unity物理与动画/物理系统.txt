@@ -1,0 +1,128 @@
+物理引擎：模拟真实世界中物理现象的算法。
+常见的模拟：刚体物理、软体物理、流体物理等。
+
+unity本身支持的是刚体物理，实心的，不可变形的物理模拟（Rigidbody）
+内置的物理引擎区分：3D（Nvidia开发的physX引擎）2D（开源的Box2D）。
+
+刚体物理引擎主要做了：1.碰撞检测、2.刚体动力学模拟。
+
+物理引擎会以一个时间固定步长对物理组件进行更新模拟。（FixedUpdate）->必须严格固定时间，不可不确定。
+物理更新unity里做的事情：
+	1.调用FiedUpdate()，更新物理组件的行为
+	2.yield WaitForFixedUpdate的协程
+	3.执行物理事件：OnTriggerxxx...
+	-小于固定步长的，第二次FixedUpdate会被跳过。
+	-高帧率情况下会引起一些卡顿或者不协调，于是unity会在每一渲染帧对物理行为进行插值来在两次物理更新之间维持平滑过度。-Rigidbody的Interpolation定义了插值行为。
+
+
+----碰撞检测-----
+-离散碰撞检测：DCD（unity默认离散碰撞检测）
+	最基本的碰撞检测方式。
+	DCD会在一个个离散的时间点进行物理计算并更新物体的位置等信息。
+	每一个物理帧，DCD做的事情：
+		1.获取物体上一帧的位置、速度信息计算新的位置与速度。
+		2.新位置判断是否会和其他物体重叠。
+		3.存在重叠，进入碰撞物理计算得出最后的位置与速度。
+	致命的缺点：离散。
+	-可能导致速度快导致穿模问题。->想法：减少两次更新间的时间。
+
+-连续碰撞检测：CCD
+	离散碰撞检测中最大的问题就是快速移动的物体会穿过其他的物体，从而逃过碰撞检测。-因为固定的时间步长进行更新的。
+	1.Sweep-based CCD将物体的运动轨迹想象成一个扫动的范围，并使用较大的扫动范围作为新的物理体积进行碰撞检测。
+	每个物理帧做的事情：
+		1.记录下物体上一帧与当前帧的位置与线速度。
+		2.使用这两帧的数据计算出一个移动范围。
+		3.对该移动范围内的物体进行碰撞检测进行相关位置/速度的更新。
+	-依赖线速度，不能处理角速度（旋转）较大时物体的碰撞
+	-消耗性能。
+	-unity通过Rigidbody的Collision Detection设置为Continuous、Continuous Dynamic开启Sweep-based CCD;
+
+	2.Speculative CCD 预测试检测
+	根据上一帧的数据预测一个物体当前帧的位置与速度。-通过扩大物体的物理体积进行实现。
+	每次根据预测点画出AABB-方形框进行物理碰撞检测 - 存在碰撞更新法线重新预测位置。
+	-会考虑到物体的角速度。对快速旋转的物体的处理比Sweep-based更好。
+	-unity中通过Rigidbody的Collision Detection设置为Continuous Speculative开启Speculative CCD。
+	-限制：性能对于Sweep-based CCD要好吗，但是可能存在误判（两个物体重叠在一起时、AABB没有包括到其他要素）精度不够。
+
+-碰撞检测对比：	
+		精确度			性能消耗
+离散 DCD      	低			低	
+Sweep CCD	高			高
+Speculative CCD	较高			较高
+
+
+---连接关节组件----
+除了基本的刚体与碰撞盒组件外，Unity提供了许多增加刚体行为与互动的组件。 - 比如连接关节。
+1Fixed Joint组件允许我们把一个刚体粘在另一个刚体上，也允许它们在一定力之下断裂。
+-重要属性
+	Connected Body：连结对象的刚体组件
+	Break Force：断裂所需要的力
+	Break Torque：断裂需要的扭矩。
+-类似于子物体一样，只不过可以断。
+
+2Hinge Joint-类似于门那样 - 由铰链连接行为。
+除了门，我们可以用hinge Joint实现摆锤、锁链等效果。
+-重要属性：
+	Connected Body：连结对象的刚体组件
+	Axis：围绕的轴
+	Anchor：轴上的位置
+	Break Force：断裂所需要的力
+	Break Torque：断裂需要的扭矩。
+
+
+3Spring Joint组件为刚体添加了由弹簧连结的行为。一股力不断尝试将两个刚体拉向同一个点。
+-重要属性：
+	Connected Body：连结对象的刚体组件
+	Anchor：弹簧固定的位置
+	Spring：弹簧的强度
+	Damper：弹簧减速的快慢
+	Break Force：断裂所需要的力
+	Break Torque：断裂需要的扭矩。
+
+
+
+----2D作用器-----
+Effector2D可以给2D物理物体增加一些更加复杂的行为，必须搭配collider2D组件进行使用。
+包括：
+AreaEffector2D：一定区域对所有物体施加一个力。
+BuoyancyEffector2D：一定区域产生浮力。
+PlatformEffector2D：制作单向平台。
+PointEffector2D：在一个点向四周的物体施加吸引力/斥力
+SurfaceEffector2D：让接触一个表明的物体沿着表面移动（传送带）
+
+
+---射线检测---
+ReyCast（） 基本的射线检测。
+但是存在问题：1.地图边缘可能检测不到地面。2.斜坡同理  -- 都会触发跳不起来的bug
+
+-盒状射线检测BoxCast
+RaycastHit2D BoxCast(Vector2 origin, Vector2 size, float angle, vector2 direction, float distance, int layerMask)
+	以origin为起点生成一个长宽为size，旋转角度为angle的矩形方块，向direction方向投出distance的距离，接着boxCast会返回接触到物体的信息。
+	可以解决基本射线检测遇到的所有问题。origin设置为角色碰撞盒的中心，direction为Down，angle为0，Size为角色的碰撞盒，Distance为一个很小的值。
+-性能消耗大-
+
+-其他也可以：
+圆：CircleCast
+胶囊：CaosyleCast
+根据具体的需求进行选择：
+-性能消耗大-
+
+也不是很大。
+
+可视化射线检测。
+画图：
+Gizmos - 画各种辅助线-在场景里面。
+-注意Gizmos 类需要放在unity	OnDrawGizmos事件里方可生效。
+练习：
+1.unity中搭建场景演示DCD、Sweep-based CCD、Speculative之间的区别。
+2.Physics.Simulate()函数作用是对一个PhysicsScene进行一次或多次的物理模拟。实现预测一个物体未来60帧行动轨迹的功能。
+3.射线检测函数存在All、NonAlloc版本。
+
+
+
+
+
+
+
+
+

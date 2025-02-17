@@ -1,0 +1,126 @@
+Unity事件
+	Unity可以使用C#的事件系统或者unity自身的事件系统来完成事件的分发功能（观察者模式）
+	C#中的event：依靠委托实现的功能。
+
+	但是使用C#事件有个缺点就是无法暴露在inspector中，这样在无代码编辑响应事件时就无法编辑，导致只能在运行的时候修改。这个时候就需要Unity Event了。
+	功能类似，不同的时可以在inspector中修改。
+	那么什么时候用unity Event、什么时候用C# event呢？
+	
+
+	使用Unity Event，需要包括UnityEngine.Events的命名空间：
+		using UnityEngine.Events;
+	变量类型就是UnityEvent myEvent;
+	还有泛型版本：UnityEvent<float>  浮点数参数... 一共可以接受四个参数
+	调用一个unity事件：myEvent?.Invke() => myEvent == null ?  : myEvent.Invke();
+	向unity事件添加响应函数myEvent.Addlistener();
+		接受参数UnityAction参数，也和Action类似。
+		
+
+UI事件接口
+	可以把Unity Event和UI中的一些事件接口搭配使用，这些事件接口时Unity预设好的，包括：鼠标进入/离开/点击/拖动等等，这样可以方便的在UI物体上添加常用的响应时事件了。
+	在UnityEngine.EventSystems;  命名空间内；
+	创建UI物体，unity会自动生成一个EventSystem（帮助我们去接受鼠标响应事件的系统：处理用户输入-对UI）
+	*IDE中输入IHandler可以查看哪些事件接口，继承实现接口方法就可以实现对应的事件。
+	比如实现接口IPointerClickHandler方法OnPointerClick ：鼠标点击此UI物品
+		参数是PointerEventData：鼠标事件数据。
+			button 左键还是右键、clickCount：点击次数...... delta：鼠标移动位移  
+			postion鼠标位置、dragging 鼠标是否在拖动、hovered 鼠标在哪些物体之上、scrollDelta 鼠标滚轮滚了多少...
+
+-UI事件：练习-
+	1.左键是否按下、2.鼠标是否在移动、3.鼠标位置是否屏幕左半边、4.是否双击
+		left       			Screen.width / 2.0f	  clickCount
+	
+-使用UI事件实现：1.一个能双击触发的按钮2.一个支持长按的按钮。
+双击触发利用接口IPointerClickHandler即可实现。
+长按需要知道鼠标按下和鼠标松开，需要继承接口：IPointerDownHandler、IPointerUpHandler的操作			
+
+
+自定义UI组件：
+自定义Button slider、Toggle组件
+	有时候Unity自带的UI组件并不能很方便的完成我们的需求，它们存在许多限制。
+	考虑一下需求：
+		1.一个防止连按的按钮（冷却时间的按钮）
+		2.实时显示进度的进度条
+		3.圆形进度条
+		4.自带基本动画效果的按钮（不需要手动添加Animator）
+		5.支持本地化的文字组件
+		6.高效率的滚动区域（循环开关的可滚动物体）-高阶
+	
+	.... 省略一大段自定义组件
+	UI组件：用户输入、用户反馈
+	
+
+
+UI的拖动与放置
+	拖动时游戏开发中的常见的交互模式，以为复合我们对于用手拿物体的认知。
+	要实现拖动，需要在脚本中继承IBeginDragHandler，IDragHandler，IEndDragHandler接口以接受和拖动相关的UI事件。
+	OnBeginDrag方法会在玩家开始拖动（按下鼠标）时执行一次；
+	OnDrag方法会在玩家拖动时每帧执行；
+	OnEndDrag方法会在玩家结束拖动（抬起鼠标）时执行一次。
+	（注意第一第二个方法需要在OnDrag的方法前提下生效）
+
+	实现的核心逻辑：
+		1.开始拖动时记录下鼠标和物体中心的位置差
+		2.拖动时每一帧让物体根据该位置差跟随鼠标移动即可。
+
+	增加可拖动区域：
+		有时需要让物体保持在一定的区域内，比如UI面板，而不是到处可以拖动。
+		如果知道可拖动范围的RectTransfrom的话，可以计算物体位置的四个边界了，使用这些边界在拖动时限制物体的位置即可。-可以利用Clamp函数哦~
+		
+	增加目标响应区域：
+		每个可拖入的物体都应该存在一个归宿。
+		物体拖入一个目标区域,物体会被吸入该区域，并且发出一个事件让我们知道。
+	
+	增加生成区域：
+		存在一个能让我们拖出来东西的地方。有这样的一个生成区域后我们可以：
+			1.从生成区域A拖出可拖动的物体
+			2.使用刚才实现的逻辑拖动该物体
+			3.把物体放入目标区域B
+
+
+
+CanvasGroup组件
+
+练习：
+	1.简述C#事件和Unity UI事件的5个优先和缺点
+	2.给拖动物体的脚本添加按右键放弃拖动的功能。
+	3.ToggleGroup时Unity UI提供管理多个Toggle的组件，尝试自定义一个脚本并实现ToggleGroup的功能。
+				
+	
+
+----拖拽与放置补充学习：
+https://www.bilibili.com/video/BV1W541147GK/?spm_id_from=333.337.search-card.all.click&vd_source=f28361126829017169715ae17844b2f6
+1.unity内置方法进行拖拽。
+	OnMouse...  OnMouseDrag拖拽、OnMouseUp拖拽结束
+	(查看所有Unity的内置方法：在vs中ctrl+shift+m即可)
+	条件：含有Collider组件
+		一般在2D贴图和3D场景中使用OnMouseDrag等内置方法。（unity文档内GUIElement相关支持移除）
+		UI、GUI一般使用EventTrigger组件和接口Interface
+	
+2.添加组件Event Trigger组件实现
+	根据内部的行为方式 - Event方法添加
+	比如鼠标拖拽、拖拽结束。对应调用的方法即可。
+	需要注意的是在UI下，transfrom.postion 在Screen Space -Overlay模式下可以被暴力赋予鼠标的屏幕位置坐标，不需要转换为世界坐标。
+	存在局限性 - 匹配响应对象时，存在是否寻找以及赋值等操作？
+3.通过接口去进行实现。
+	IDropHandler 接口是 Unity UI 系统中的一个事件接口，用于处理拖拽操作中的放置事件。
+		但是注意，一般鼠标拖拽物品时，放在槽内这个槽UI用于接受，但是一般鼠标射线是被上方的物品给挡住了，利用CanvasGroup组件去设置鼠标射线投射（设置想要不被检测的UIblockRaycast为false即可）。
+		可以获取到拖拽的鼠标游戏对象 - eventData.pointerDrag.GetCompont 获取对应组件即可。	
+			
+	IPon... 拖拽接口写在拖拽的物体上。
+		拖拽移动可以通过rectTrasfrom组件通过eventData.delta叠加进行移动。
+			注意鼠标移动可能会受到画布Scale影响，需要除以canvas.ScaleFactor 尺寸大小系数得到修改。
+	
+-其他实现：
+	设置UI在同级UI物体上的最高层。
+	rectTransfrom.SetAsLastSibling(); //将 此UI设置为同级UI下的最后一个 - 会显示在最前面
+	
+	
+
+	
+	
+
+
+
+
+

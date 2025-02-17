@@ -1,0 +1,6 @@
+dotnet new console  当前文件夹
+运行：
+dotnet run
+
+配置相关资料:https://www.bilibili.com/video/BV19Y4y1G78u/?spm_id_from=333.337.search-card.all.click&vd_source=f28361126829017169715ae17844b2f6
+

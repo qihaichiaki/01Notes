@@ -1,0 +1,17 @@
+Smoothstep(f a, fb, fx) -平滑过度
+{
+	t = Mathf.Clamp((x -a) / (b - a));
+	return t * t * (3.0f - (2.0f * t));
+}
+
+--二维的旋转算法：
+Rotate(Vector2 v, float degrees)
+{
+	radinas = degrees * Mathf.Deg2Rad;
+	sin = Sin(radinas);
+	cos = Cos(radinas);
+	x = v.x;
+	y = v.y;
+	return new Vector2(cos * x - sin * y, sin * x + cos * y);
+}
+

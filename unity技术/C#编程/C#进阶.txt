@@ -1,0 +1,208 @@
+内存：
+	访问块、空间小 - 栈 Stack
+	访问慢、空间大 - 堆 Heap
+堆：一般使用new 关键字创建出的实例（除开new struct）。（class、string、数组、array、delegate(委托).....）
+栈：大小固定（1-2MB）存储本地变量，访问速度非常快。（int、float、bool、struct、enum...）
+
+C#数据类型：
+	值类型、引用类型
+	区别：存储类型和变量传递方式。
+		值：拷贝  （注意Vector3是一个结构体，属于值类型）
+		引用：传递时只是拷贝了地址。
+			地址类型存储在栈上，但是其指向的数据存储在堆上的。
+			引用类型都继承自 System.Object。
+	
+		
+
+-string类型
+	1.不变性。（）
+		string被创建时，永远不可改变。对string改操作都是创建一个新的变量。
+	2.String Interning
+		-字符串池，如果池中存在内容相同的字符串，可以访问该已存在的字符串，不需要创建，否则创建并且加入字符串池子。--优化创建、访问字符串性能。
+
+
+-ref关键字，传参时，使用变量的引用。（引用变量此时传入地址里面改变外面就会改变）
+	局部变量就可以影响到实参。
+
+
+
+
+装箱与拆箱
+	值类型与引用类型作转换，比较昂贵的操作，少用。
+	装箱：值->引
+	拆箱：引->值
+
+
+GC：垃圾回收机制
+	一直使用new创建新的对象，但是没有主动删除，C#提供的垃圾回收器来清理不需要的内存。（C++需要）
+	垃圾回收是在堆上的。
+	堆内存：
+		0临时变量、较小类实例。清理频率最高
+		1缓冲区，从0活下的对象放入1中（常被使用）
+		2从1活下的对象放入2中。长期需要的变量（static等），清理的频率最低。
+	清理过程从上到下，意思是清理1的话，0也会被清理，那么清理2是一个完整的垃圾回收。
+-清理、回收
+	一次垃圾清理分为三个阶段：
+	1.标记阶段。
+		GC会标记找到所有仍被使用的对象。
+		根据引用树去挨个寻找。
+		这样GC找到了正在使用的对象。
+	2.回收阶段。
+		GC从内存删除未被引用的对象（只是将内存那段区域标记为未被使用即可）-即删除就是一个覆盖的过程。
+	3.压缩阶段。
+		此时内存空间可能会出现一些空隙 - 内存碎片问题。此时GC将存活的对象重新排列，沉入锥底，最小化内存的空洞。（对象之间的相对顺序不变）
+
+	
+	GC什么时候被触发：
+		1.内存快满或者超过GC所设定某个阈值时。
+		2.手动调用GC.Alloc();  方法。-注意也是非常耗性能。
+
+
+	-但是我们需要谨慎的生产垃圾。
+		Unity存在一个特性：Unity类每次访问其中的数组时会拷贝一份新的数组给使用者。
+	
+	-性能优化是复杂的，但也是很重要的。
+
+
+C#的本质：
+	.NET windows推出的程序开发框架。包含很多常用类库和CLR的运行环境。CLR提供了将C#代码翻译成机器指令的功能、内存管理功能、多线程功能... 
+	.NET虽然强大，但是主要运行在Windows上的。将.NET适配到多个操作系统，Mono诞生。另一个.NET版本，适用于跨平台。
+
+	C#是一门用来开发基于.NET框架的软件的编程语言.
+	Unity为多平台游戏引擎，需要Mono的多平台特性。
+	-解释了MonoBahaviour - Mono：Mono Runtime -运行环境 Behaviour：物体行为。所以就是给予Mono Runtime的物体行为脚本。
+
+
+C#从代码到指令：
+	C#代码 -编程语言
+	IL/CIL -中间语言- > windows:.exe
+	机器码
+
+
+
+---------------------进阶特性
+泛型：适配参数的类型，一种逻辑
+	func<T1, T2...>();  T为值类型或者引用类型
+
+定义泛型方法：
+T Add<T>(T a, T b) => a + b;  // 存在一定的小问题。
+C#特性，泛型的类型限制：
+	可以在()后定义where进行限制哦
+T Add<T>() where T: class/struct/new()/<base class name>/<interface name>
+		T必须是引用/值/必须有一个无参构造/必须继承一个基类/实现一个接口
+T Add<T>(T a, T b) where T: struct{
+  return a + b;  // 这样写更加规范
+}
+
+泛型类：
+public class MyList<T> where T: struct{
+	List<T> list = new List<T>();
+
+	public void Add(T item)
+	{
+		list.Add(item)
+	}
+}
+
+
+委托 Delegate
+Action 和Func 后面隐藏着强大的机制：委托。
+
+委托提供的功能正式可以存放函数的类型（和C语言的函数指针类似）
+定义委托变量：
+delegate <返回值类型> <委托名> (<参数列表>);
+(需要在全局区域 - 函数外定义？)
+
+一个委托变量可以存储很多个函数。-Multicasting
+委托名 += 同类型函数名字;
+调用的时候依次调用。
+函数存在返回值，最终返回最后一个函数的返回值。
+一个委托类型的函数们叫做调用列表（Invocation List）
+	GetInvocationList();  // 获取函数列表
+
+-事件Event
+	是对委托的一种封装。但是仅仅支持+=、-=。禁止了= 不可以修改委托的invocation list。--因为这样保证了这个类不可以对其他加入的方法进行修改，要改只能改自己的。
+	event也可以修饰一个委托变量-变成事件变量
+	public delegate void MyDelegate(string message);
+	public event MyDelegate MyEvent;
+
+
+--Action和Func：就是一个委托变量，只不过增加了泛型模板而已
+using System;
+(in 该参数不会被函数修改-)
+	Action就是一个无返回值的，接受0-16参数的委托。
+	public delegate void Action();  
+	public delegate void Action<in T>(T obj);
+	......
+	
+	Func就是一个有返回值的Action
+	public delegate TResult Func<out TResult>();
+	public delegate TResult Func<in T, out TResult>(T arg);
+	...
+
+
+--字段、属性
+字段就是类中的成员变量。
+属性理解为对此字段的一个封装。
+	属性两个组成部分：getter、setter
+	public int speed = 5;
+	public int Speed{ get{return speed;} set{speed = value;}}  // 定义了一个属性
+	
+	get-getter允许我们自定义读取某变量时的行为，增加了类的安全性与可读性。
+	set-setter 存在一个看不见的参数value，定义了写入该属性的行为。
+
+自动属性。
+	public int speed {get; set;}  // 可读可写
+	public int speed {get;}  // 可写不可读
+	public int speed { get; private set;}  // 可读，本类可写
+	...                               protected set;  // 本类和子类可写。
+	
+
+
+---Interface
+	接口定义了一系列类的规范。接口中的方法、属性、事件-必须被子类实现。
+	和类的定义类似，只不过里面不实现方法。命名默认首字母为I（i的大写）
+	
+	-当我们需要一系列相似行为与功能的类时，可以考虑新建一个接口来将这些类统一起来。
+
+
+--Partial Class 部分类
+	较大项目中非常常见。
+	允许我们把同一个类写在多个文件里，每个文件提供类的一部分，使用partial关键字，最后组装到一起。
+
+-Lambda表达式
+
+	(参数列表) => (返回的表达式)
+	-匿名函数
+	Func<int, int, int> mul = (x, y) => x * y;
+	-可以将其当作委托类型的变量
+
+-通用形式：
+	(参数列表) => {
+		执行的程序语句;
+	};
+
+-隐式类型
+	使用var关键字定义隐式类型变量
+	var a = 5;
+	var b = "你好！";  
+
+	--原理是编译器推断。
+	foreach -循环会非常方便。
+
+
+练习：
+	1.编写函数，在A秒后执行一个无返回值的函数F并且之后每B秒再一次执行函数F
+	2.编写一个循环，在循环中删除一个整数list中所有小于0的数。
+	 
+		
+
+
+
+
+
+
+
+
+
+

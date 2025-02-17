@@ -1,0 +1,417 @@
+*难点
+
+系统角度去理解文件！
+Linux -- 一切皆文件
+
+C/C++程序默认打开三个文件流：标准输入、标准输出、标准错误
+			stdin	stdout	stderr
+			FILE *	FILE*  FILE*
+			（键盘）     （显示器）
+键盘、显示器 可以被看做文件吗？
+	是的。
+没有打开键盘和显示器：依旧能够进行scanf fgets printf cout ?
+因为程序开始默认写入打开了。
+
+
+// 什么叫做文件
+
+
+--------------------一、文件描述符---------------------
+预备：
+
+1.文件 = 内容 + 属性（也是数据）	文件的所有操作：无外乎：a.对内容 b.对属性  （对文件的操作范畴）
+2.文件在磁盘（硬件）上放着，我们访问文件 -> 编译 ->exe -> 运行 -> 访问文件：进程在访问文件（本质）--是需要通过接口访问的。（但是之前所学的接口这些学的都是语言上的接口：C、C++、Java）
+	要向硬盘写入，只有操作系统有权利写入。（操作系统是硬件的管理者）普通用户想写入，必须让OS提供接口 ->文件类的系统调用接口。（1.语言上对此进行封装，为了让接口更加贴切语言，更加好用 -> 导致了不同的语言级别的文件访问接口（都不一样），但是都是用的系统接口）
+	（2.跨平台 -- 如何语言不提供对文件的系统接口的封装，那么所有的文件操作，就必须使用OS的接口 -- 这样写出来的代码不具备跨平台性！-- 语言就把所有OS的接口封装实现，条件编译，动态裁剪即可）
+	
+3.显示器是硬件吗？printf向显示器打印，不觉得奇怪吗？ 也是一种写入。（和磁盘写入到文件没有本质区别）
+
+4.Linux认为，一切皆文件
+感性：文件而言：（文件就是最基本理解）
+	read、write
+	显示器：printf/cout -> 一种write （程序向显示器）output
+	键盘：scanf/cin -> 一种read （程序向键盘）input
+	程序--进程-->内存  所谓的显示器键盘 数据交互也都是和内存操作的
+	
+	文件读和写：
+	普通文件 -> fopen/fread -> 你的进程内部（内存）-> fwrite -> 文件中		
+			input		           		output
+
+什么叫文件呢？
+	站在系统的角度，能被input，output的设备就叫做文件！
+		狭义的文件：普通的磁盘的文件
+		广义的文件：显示器、键盘、网卡、声卡、显卡、磁盘.....基本所有的外设，都可被称作文件
+
+
+
+正片开始：
+-----------------------------------
+1.复习一下C文件接口：
+FILE *fp = fopen("绝对路径/相对路径", 'w/w+/r/r+/a/a+'(打开方式));
+
+	w/w+ 打开文件，并且（打开就会被清空  -- C语言的特点）清空内容，（不存在此文件会在当前路径进行创建）
+		当前路径？（ls /proc/pid -l 查看对应进程属性：cwd当前工作目录，exe 此程序路径）
+			当一个进程运行起来的时候，进程会自己记录当前所在工作路径。
+		（linux指令 >log.txt -> 重定向，会首先清空文件内容  -- > 输出重定向（利用的就是C接口））
+			创建文件：此进程通过系统调用，创建的文件。
+	a/a+ 追加，每次在文件末尾增加内容。
+写操作：
+fwrite(const char* , 每个数据的大小,  数据个数, fp(文件指针类型)); // 个数不要加1 -- 字符串最后加\0是语言的规定，文件内不需要遵守(文件只需要存有效数据即可)
+fputc(char, 文件指针)
+fputs(const char* 文件指针)
+fprintf(文件指针, "格式化输出", const char*)
+（实际上，fprintf也可以模仿printf，打开标准输出流即可stdout）
+读操作：
+fgets(字符指针, 读取字符数, 文件指针);  :C->s(string) -> 会自动在字符结尾添加\0  读取失败返回null
+fscanf fread
+
+cat指令 就可以进行模拟实现
+		
+flose(文件指针);  // 关闭文件
+
+
+三个标准输入输出流：（extern FILE *）stdin键盘 stdout显示屏 stderr
+
+
+-------------------------------------
+2.直接使用系统接口：
+C库函数调用的就是系统调用：open close read write
+
+man 2 open
+
+	int open(路径（const）, int flags类型的选项)  -- 选项int类型 32比特，每一位代表一个状态
+	int open(路径（const）, int flags类型的选项, mode_t mode(权限 -- 八进制 比如0666));
+	选项：O_RDONLY O_WRONLY O_RDWR  只读 只写 读写  O_CREAT(没有文件就创建) O_TRUNC（写入时清空）O_APPEND（追加）
+	（宏定义）
+	如何给函数传标志位：
+		你在应用层看到一个简单的动作，在系统接口甚至OS层面，可能做非常多的动作。
+
+	位图：看第几位比特位代表哪个信号 那么传入多个就可以进行位运算 | &  即可 
+	
+	
+	open返回值：文件描述符      <0 打开失败             
+
+
+	例子：以写方式打开 O_WRONLY
+		int fd = open("路径", O_WRONLY | O_CREAT); // 一般读取使用此接口，否则创建文件权限乱
+		int fd = open("路径", O_WRONLY | O_CREAT， 0666);  // 但是这样也会受到权限掩码的影响
+			（可以调用umask(0);设置当前下创建umask open会采用最近原则进行创建）
+	所以一般文件存在就用第一个open 不存在就用三个参数的
+	
+man 2 close
+	close(int fd);  (文件描述符)
+
+man 2 write
+	write(fd, const char*, 写入多少个字符);  sszie
+	同样的是从文件开头开始写，但是没有提供清空操作
+	需要 int fd = open("路径", O_WRONLY | O_CREAT | O_TRUNC， 0666);  -- w操作  
+	int fd = open("路径", O_WRONLY | O_CREAT | O_APPEND， 0666);  -- a操作
+
+man 2 read
+	read(fd, char* , 字节数)  ssize -- 整形 返回实际读取字节数
+------------------------------------
+3.分析系统接口的细节，引入fd（文件描述符）
+
+	如何理解？
+		0 1 2？去哪里了：-- c语言默认打开三个文件 0-stdin 1-stdout 2-stderr  （C语言封装为了fd）
+		连续打开文件fd从3开始增加
+		C语言中是FILE是什么呢？ FILE实际上就是一个结构体？->C标准库设计的
+			C文件 库函数 内部一定要调用系统调用，在系统角度，只认识fd。
+			FILE结构体里面必定封装了fd
+			_fileno -> 分封装的就是文件描述符
+-------------------------------------
+4.fa理解，fd和FILE的关系，fd分配规则、fd和重定向 缓冲区
+
+
+	fd是什么？
+	    文件：1.被进程打开的文件（内存文件） 2.没有被打开的文件（磁盘上，文件 = 属性 + 内容）（磁盘文件）
+		进程访问文件，必须先打开文件。一个进程可以打开多个文件-> 一般而言，进程:打开文件数 = 1 : n    
+		文件要被访问，前提是要把文件加载入内存，才能直接访问。
+		多个进程都打开文件呢？系统中会存在大量被打开的文件 。OS就要把这么多文件管理起来。--先描述，在组织。
+			内核中，OS内部为了管理打开文件，构建struct file{struct* next/prev//包含此文件的所有内容：（包含属性）} 打开一个就创建一个其对象。然后用双链表将其组织起来。--那么现在要 进程和文件的对应关系。
+						***用数组来进行存储 类型就是 struct file* array[32];数组内，0 1 2 3....一次对应此进程内所打开的struct file对象。
+
+
+	    进程相关联系
+		【PCB struct task_struct   ->  (成员 -- 一个进程打开的文件信息)files_struct （结构体）-> fd_array(指针数组) 类型就是（struct file）（进程管理）】->【此结构体就是包含的此文件的所有信息。（文件管理）】
+	    fd本质就是一个数组下标。
+
+
+文件描述符fd：
+	0 1 2
+		标准输入 标准输出 标准错误
+	fd分配规则：最小的，没有被占用的文件描述符。
+		(程序开始前默认打开的第二个文件，fd分配为1)stdout -- 内_fileno封装的就是1，如果提前关闭1，那么本来显示器文件被关闭了，就不会打印到显示器了 -- 输出重定向
+	
+
+	输出重定向：（内核展示）
+				(给进程默认关联打开三个文件 -- 操作系统给程序提供的支持（系统和语言库）)
+		task_struct  ->  files_struct 
+				指针数组 -> struct file   -- --- C默认打开 0 标准输入  键盘
+				0				1 标准输出 显示屏
+				1				2 标准错误 显示屏
+				2
+				3
+				....
+
+			在C语言中：FILE *stdout = fopen("显示器", "w");  -- open --  1 
+			close关闭 -- 把对应fd指向的位置置为null即可。
+	    重定向的本质其实是：操作系统内部，更改fd对应内容的指向。open -- O_WRONLY | O_CREAT | O_TRUNC， 0666
+	
+	追加重定向 只需要open上将清空换为O_APPEND追加即可。
+	但是注意在close之前，需要加上fflush(stdout);才可以	
+
+	上述只是利用其规则，不是真正的重定向系统调用
+
+	*** int dup2(int oldfd, int newfd);
+		文件描述符对应指针  -- oldfd copy给 newfd  -- > 最后和oldfd一样。
+	ed：输出重定向：显示器(1) -> log.txt(3)
+		dup2(3, 1);  (old, new) ;(目标，将原本1指向的内容指向3指向的内容)  也就是说不利用重新分配fd了。
+			最后留下的是3。1内指针变为了3，1发生了改变，1就是new。
+		记忆：目标 拷贝给 哪个。  重新让被拷贝fd指向我们的目标位置。
+
+
+如何理解一切皆文件？
+	Linux设计哲学->体现在操作系统的软件设计层面的。
+		linux是C语言写的！如何用C语言实现面向对象，甚至运行时多态？
+				  类：1.成员变量（属性）2.成员方法
+			但是Cstruct内不能包含方法，非要的话就需要使用函数指针了。
+
+	Linux下的外设：
+		磁盘		显示器		键盘		网卡		显卡	......
+		read()		read()		read()		read()		read()	.....
+		write()		write()		write()		write()		write()	.....	
+
+		1底层不同的硬件，对应不同的操作方法。
+		2但是上面的设备都是外设，所以每一个设备的核心访问方法都可以是read、write。（IO设备）
+		结合上述两点，所有的设备，都可以有read、write函数，但是函数的代码实现不一样罢。
+	    所以，利用C语言中的struct结构体，创建两个方法指针即可。
+		这样就都统一为了struct file -- Linux皆为文件。实现这些函数的开发就是驱动开发。
+
+
+缓冲区：
+	1.什么是缓冲区 - 就是一段内存空间（这个空间是语言提供的）
+	2.为什么要有缓冲区？
+		写透模式 -- WT  直接将数据送到进程具体操作（成本高- 慢） 	本人亲自送东西
+		写回模式 -- WB 	缓冲区（快速，成本低 -- 提高整机效率（主要是为了提高用户的响应速度））				ed：发送快递	 缓冲区刷新策略：1.立即刷新 2.行刷新：（行缓冲）\n ed:aaa\n bb(会将aaa\n刷新出去)
+3.满刷新（全缓冲）特殊情况：1.用户强制刷新（fflush）2.进程退出或者异常（exit()） 缓冲策略：一般 + 特殊。
+		内存->磁盘 磁盘->磁盘、
+	数据不会直接写入目标文件
+	3.缓冲区在哪里？
+		关于缓冲区的认识：
+			一般而言，采用行缓冲的设备文件 -- 显示器
+			全缓冲的设备文件 -- 磁盘文件
+		（所有的设备永远都倾向于->全缓冲）缓冲区满了才刷新 -> 需要更少次的IO操作 -> 更少的外设的访问 == 提高效率 （主要矛盾不是输入的数据量的大小，而是和IO交互最耗时的）-- 其他刷新策略就是具体情况做的妥协。
+			比如：显示器：直接给用户看的，一方面要照顾效率，一方面要照顾用户体验。 -- 行刷新
+			极端条件下，你可以自定义规则的。
+	
+
+		同样一个程序，向显示器打印输出四行文本，向普通文件（磁盘上），打印的时候，变成了七行，其中：1.C接口打印了两次，系统接口只打印了一次。
+		（上面的函数执行完了，不代表数据已经刷新了）
+		上面的测试不影响系统接口。如果有所谓的缓冲区，所谈的“缓冲区”是由谁维护的呢？-- 曾经我们所谈的缓冲区绝对不是由OS提供的。如果是OS统一提供：那么上面的d代码表现应该一致 -- C标准库提供的
+	用户空间：	进程		C标准库（缓冲区）
+			fputs  ---               被调用
+					调用后不会直接放在内核，而是存在C标准库中的缓冲区
+ 	内核                  	write（直接写入内核）	 --------  定期写入操作系统
+			也有内核的缓冲区（最后也刷新到磁盘上  -- 此时刷新到此处，数据不再属于进程，而是属于内核数据了）
+	
+		如果向显示器打印，刷新策略是行刷新，那么最后执行fork的时候，一定是函数执行完了，数据被刷新了  -- fork无意义。
+		但是如果对你的程序进行了重定向 -- 那么本来向显示屏打印的，而是向普通文件打印，刷新策略变成全缓冲 -- 原本字符串的\n变得没有意义。
+		fork的时候，函数执行完了，但是数据还没有刷新！在当前进程对应的C标准库的缓冲区当中 -- 这部分数据是父进程的数据。 return 父子各自退出。 -- 刷新缓冲区 -- 进程退出->强制刷新。刷新本质也是写的过程。 所以退出后会发生一个写时拷贝。所以此时就会出现两份数据。
+	C标准库给我们提供了用户级缓冲区。 那么具体根据什么来进行刷新的呢？
+	C库提供了：FILE结构体来操作文件。FILE并不是只封装了fd，除了fd还包含了fd对应的语言层的缓冲区结构。
+	FILE -> 里面封装了各种缓冲区。 所以在用语言级别输入输出并不直接输入到对应文件内，而是先输入缓冲区。
+
+	C语言中打开的FILE，文件流	cout  cin -> 类 -> 必须包含 1.fd， 2.必须定义所谓的buffer -> cout << -> operator<<()->内部实现拷贝到buffer，输入到指定位置即可。
+
+1.我们自己设计一下用户层缓冲区：
+#define NUM 1024
+typedef struct MyFILE{
+	int fd;
+	char buffer[NUM];
+	int end;
+}MyFILE;
+MyFILE* fopen_(const char * pathname, const char* mode)
+{
+	assert(path && mode);
+	MyFILE* tmp = NULL:
+	if (strcmp(mode, "r") == 0)
+	{
+	}
+	else if mode, "r+"
+	... mode, "w"
+	{
+		int fd = open(path, O_WR | O_TRUNC | O_CREA, 0666);
+		if (fd >= 0)
+		{
+			fp = (MyFILE*)malloc(sizeof(MyFILE));
+			memset(fp, 0, sizeof(MyFILE));
+		
+			fp->fd = fd;
+		}
+		
+	}
+	...    "w+"
+	...  "a"
+	... "a +"
+	else  // 什么都不满足
+	return fp;
+}
+
+void fputs_ (const char* message, MyFILE *fp)
+{
+	assert(fp && message);
+	strcpy(fp->buffer + fp->end, message);  // abcde\0 
+	fp->end += strlen(message);
+	// debuge
+	printf("%s\n", fp->buffer);
+
+	if (fp->fd == 0)
+	{
+	
+	}
+	else if(fp->fd == 1)
+	{
+		if(fp->buffer[fp->end - 1] == '\n') write((fp->fd, fp->buffer, fp->end);
+		fp->end = 0;
+	}
+	... ( == 2)
+	{  
+	}
+	else
+	{
+		// 其他文件
+		
+	}
+}
+
+void fflush_ (MyFILE* fp)
+{
+	assert(fp);
+	if (fp->end != 0) 
+	{
+		write(fp->fd, fp->buffer, fp->end);
+		sysncfs(fp->fd);
+		fp->end = 0;
+	}
+	// 暂且认为刷新了 -> 其实是把数据写到了内核  sysncfs -> 内核层面上刷新到磁盘上
+}
+
+void fclose_(MyFILE* fp)
+{
+	fflush_(fp);
+	close(fp->fd);
+	free(fp);
+}
+int main()
+{
+	MyFILE* fp = fopen("", "r");
+	if (fp == NULL) ....
+	fputs_("", fp);
+	fclose_(fp);
+}
+
+// C标准库的模拟实现
+	最后的刷新策略是由用户通过执行C标准库中的代码逻辑来完成刷新动作。效率提高体现在：因为C提供了缓冲区，那么我们通过策略来决定了IO的执行此数，而不是执行量。
+
+2.minnishell支持重定向：
+	分析是否有重定向，"ls -a -l>log.txt" -> "ls -a -l\0log.txt"
+int redir_status;
+#define INPUT_REDIR 1;
+#define OUTPUT_REDIR 2;
+#define APPEND_REFIR    3;
+#define NONE 0;
+
+char* CheckRedir(char *start)
+{
+	assert(cmd_str);
+	char *end = cmd_str + strlen(start) - 1;  // ls -a -l\0
+	while (end >= start)
+	{
+		if(*end == '>')
+		{
+			if (*(end - 1) == '>')
+			{
+				redir_status = APPEND
+				*(end - 1) = '\0';
+				end++;
+				break;
+			}
+			redir_status = OUTPUT_REDIR;
+			*end = '\0';
+			end++;
+			break;
+		}
+		else if(*end == '<')
+		{
+			redir_staus = INPUT_REDIR;
+			*end = '\0';
+			end++;
+			break;
+		}
+		else{
+			end--;
+		}
+	}
+	if (end >= start)  // 提前break
+	{
+		return end;
+	}
+	else
+	{
+		return NULL;
+	}
+}
+
+	char *sep = CheckRedir(cmd_line);
+	// 如下在子进程内处理
+	if (sep != NULL)
+	{
+		// 重定向处理
+		switch(redir_status)
+		{
+			int fd = -1;
+			case INPUT_REDIR:
+				break;
+			case OUTPUT_REFIR:
+				fd = oepn(sep, O_WRONLY | O_TR | O_CRE, 0666);
+				dup2(fd, 1);
+				break;
+			default:
+				printf("bug?\n");
+				break;
+		}
+	
+	}
+
+	前面的两个小问题：1.close关闭fd之后文件内部没有数据
+			printf 往stdout打  提前关闭close(1);
+			此时必须要fflush(stdout); 才能写入文件，因为此时数据还在缓冲区。
+			因为printf认的stdout（File*），数据会暂存在stdout的缓冲区，（不会\n刷新）此时数据在缓冲区里，先把fd关了，数据自然无法刷新写入。
+		              2. 1,2 stdout stderr 区别	C++里的后缀：cpp cc cxx
+			perror ->  stderr 1
+			printf -> stdout 2
+			
+			cout->stdout 1
+			cerr->stderr 2
+			上面都可以在屏幕上显示内容。
+			利用重定向可以验证1和2的区别，重定向其实是转化的1号文件描述符
+			1 和 2 都对应的是显示器文件，但是他们两个是不同的，认为同一个显示器文件，被打开了两次。
+			
+				0 -- 键盘
+				1 -- 显示器
+				2 -- 显示器（打开了两次显示器文件） 证明 - 重定向 （1打开的显示器文件不影响2打开的显示器文件）
+
+			一般而言，如果程序运行有可能出问题的话，建议使用stderr 和 cerr来打印，常规的话就是用stdout cout。
+			****将来写程序：把常规和错误分开打印：>ok.txt 2>err.txt (2> 把原本2号指向文件重定向)
+					这样正确的打印在ok.txt 错误的就打印到err.txt
+			如果全部写的话：
+				> log.txt 2>&1    		2>&1 (本来往log.txt打，但是你先别急，先把1指向文件拷贝一份给2（或者先执行重定向，然后把1指向2，继续重定向 ）)
+			perror -> 向2号文件描述符写入
+			C语言errno.h errno = 3;  // 错误码值修改 会让perror显示不同的错误的信息。此错误码是全局的。
+			自己设计一个perror：
+				*strerror(int errnum);  写入错误码 然后前面往stderr中打印即可
+
+		
+		
+				

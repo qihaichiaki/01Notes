@@ -1,0 +1,105 @@
+list  -- 双向循环链表--
+O1的时间复杂度--任意位置进行插入删除
+---- ----使用----------------
+和vector类似，只不过不存在扩容，并且不支持[]重载
+
+查文档就会了
+iterator在插入时，迭代器不会存在失效 
+find找不到的时候就返回end() 
+iterator在删除的时候就可能会失效
+
+operations:
+splice -- 链表转移 (iterator i, list& x)
+拼接, 将x拼接到此链表的i前面
+remove(x);  -> 将x在链表里的全部数据删除
+unique() -- > 去重  前提--先排序   -- 双指针轻松解决（去重用这个算法会非常麻烦，会用其他的算法）
+sort() -- > (算法库里已经存在一个了，为什么这里还会有呢 因为算法库无法对链表进行sort 不是连续存储的空间)
+	（算法库里面的sort要求排序的对象必须时连续的物理空间--快速排序 三数区中） 所以这里使用的算法是归并算法--还有一个特点，不需要消耗额外的空间。
+现在有N个数据需要排序，vector+ 算法sort  list+ sort
+选择vector    -- 大量数据的时候，vector
+
+
+
+
+
+
+
+
+
+
+
+
+
+list模拟实现：
+
+template<class T, class Ref, class Ptr>
+
+iterator：
+struct --list_iterator
+
+T& operator*()
+iterator& operator++() // 前置++
+iterator& operator++(int) // 后置++
+
+完美阐释了C++类的作用
+不暴露底层的细节 -- 提供了统一的访问形式
+
+所以，这里的自定义类型 -- 就不需要进行释放 -- 析构  指针，结点不归迭代器管
+迭代器是一个像指针一样的东西
+所以需要重载-> 访问成员的  存在list里面的自定义类型，访问自定义类型中的对应成员就需要下面的重载
+operator->()
+
+T* operator->(T const *this)
+{
+    return &(operator*());
+}
+调用的时候，实际上就是 it-> ->_a1      语法为了可读性，编译器进行了特殊处理，变成了一个箭头
+我们需要此数据的一个指针 -- 
+指针->值  -- 
+
+
+const迭代器  -- 只读
+T& operator*()  -- 改为const即可解决
+但是想要重载 必须要参数列表不同 返回值不一样不行。
+采取传参来进行区分 -- 模板函数就可以把这些东西进行泛型化
+
+iterator insert(iterator pos, const T& x);
+
+系统默认提供的拷贝构造和=运算符重载均为浅拷贝（内置类型值拷贝，自定义调用拷贝构造）
+
+clear() 清空数据 保留头结点
+
+（传统写法：遍历Node，使用delete）也可以直接迭代器遍历，使用erase进行删除
+
+在类外必须带有模板参数	--类型
+
+类内：可以直接使用类名（编译器处理）可以不用写模板参数。（推荐写）
+
+
+
+
+
+反向迭代器：--迭代器适配器
+正常思维，copy 一下正向迭代器， 然后修改一下。
+
+大佬的思维：
+1、list，那么vector的反向迭代器怎么搞？
+2、复用：复用 -- 迭代器适配器。单独搞.h  template<class Iterator, class class Ref>
+iterator	it;
+	-- 复用正向迭代器操控即可。
+
+源码里面：*()  -- > *--tmp  是返回的前一位置的值
+也是使用正向迭代器来构造的
+--实际上，源码里面begin是指向前一个位置  --- 这点非常重要  -- rbegin传入end(),  这样就能支持（++ -- 的迭代器）容器均可使用此反向迭代器（只要实现自己的正向迭代器即可）。
+
+
+不支持的就是没有支持双向的：unorder_map/set  forward_list(单链表)
+实际上list就是一个双向迭代器。
+		     单向					双向
+对于迭代器来说：功能：forward ++(unorder_map/set  forward_list)、bidirectional ++ --(list map set )	
+	          实现: random_access_iterator ++ -- + -	deque vector
+			随机
+实际上，观察文档：
+	sort 	迭代器模板 实际上传入的就是RandomAccessIterator(名称暗示sort的容器迭代器必须要随机迭代器)
+	reverse	bidirectionalIterator	（双向迭代器）	随机迭代器是一种特殊的双向迭代器
+

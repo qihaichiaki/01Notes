@@ -1,0 +1,151 @@
+远程操作-
+
+之前的操作都是在本地进行操作完成的->一台服务器
+Git其实是分布式的版本控制系统。
+
+--------理解分布式版本控制系统
+	主机1	主机2
+	<-------------->
+	相互推送，存在问题。 备份、安全问题....
+	
+于是加上中央服务器，中央服务器一直开着。
+	每个电脑可以clone操作。
+	个人可以对中央服务进行提交。推送
+	其他人从中央服务器进行拉取修改。拉取
+	
+	对于中央服务器仓库称作：远程仓库。
+--GitHub国外的网站、gitee国内的。
+
+
+---------创建远程仓库
+
+一个仓库对应一个项目系统。
+仓库地址-https 访问远程仓库
+
+-初始化仓库：
+	选择语言、.gitignore 添加开源许可证
+-设置模板：
+	readme.md 仓库详细内容 lssue模板文件、Pull Request模板文件
+		 lssue :有问腿的人和仓库管理（开源）交流报错的地方。
+		Pull Request：一开始，dev merge 到master ，想要合并，需要给仓库管理员看 - PR合并申请单，管理员同意了，就可以merge进行操作。	
+		
+-选择分支模型：
+	单分支模型
+
+远程仓库存在成员的。
+	管理员，开发者....
+
+--------------克隆远程仓库
+	https、ssh、svn、svn+ssh
+	使用ssh ：公钥加密.. 实用性和安全性。
+	使用https：直接使用链接克隆即可。
+
+命令 git clone https 即可
+	注意不能再任意本地仓库所在的目录即可。
+	
+	clone
+远程仓库:origin	<push-	本地仓库		工作区
+master		-fetch>	HEAD、暂存区
+
+origin表示默认远程仓库的名字
+git remote 查看远程仓库名字
+git remote -v 远程仓库详细信息
+fetch获取、push 推  --表现了当前本地仓库对远程仓库的权限。
+
+
+-----ssh 公钥加密、登录模式 --克隆远程仓库
+码云-设置-ssh公钥
+
+此时 git clone git@gitee...
+如果gitee没有配置本地服务器的公钥，那么就无法配置。
+
+-如何查看本地服务器的公钥？
+1.创建或者查看ssh key
+用户主目录下，存在.ssh目录下的id_rsa 和id_rsa.pub 此两个文件，公钥。
+没有需要进行创建：ssh-keygen -t rsa -C "邮箱" 注意邮箱需要和码云上的邮箱一致。
+一路回车即可，此时可以生成ssh的公钥和私钥。
+cat公钥到码云仓库即可。
+此时取git clone即可。
+
+
+--------------向远程仓库推送
+需要注意，push操作是分支和分支之前的操作。
+
+配置完全
+	git config --global user.name ...
+需要注意，本地仓库的user.name 和user.email内容必须和远程仓库一致。远程仓库内gitee就是@后面的内容。邮箱需要是远程仓库上的提交邮箱。
+
+修改工作区内的内容，进行add、commit后
+查看git status 可以查看本地仓库和远程仓库之间的区别。
+
+推送命令：
+git push origin master:master 
+	远程仓库名   本地分支:远程分支（如果远程和本地分支名字是一致的，可以省略为一个名字）
+
+
+分支之间需要建立连接，才能push成功。-在clone的时候，已经为master完成了。
+
+-------------远程仓库拉取操作
+当远程仓库内容多于本地仓库，此时需要本地仓库需要进行pull操作拉取到本地仓库即可。
+
+
+git pull origin master:master
+	远程仓库名 远程分支:本地分支	（pull操作实际上就是pull拉取 + merge，同理，相同的名字也可以进行省略。
+
+
+
+
+--------------忽略特殊文件
+.gitignore
+	在日常文件，存在一些特殊文件，不应该提交到远端的。
+	可以不想让Git追踪管理的文件可以包含到.gitinore下即可，这样add时候就会进行忽略。
+	.gitinore 必须在工作区的根目录下。
+
+不想追踪的文件的文件名直接写进来 # 表示注释
+
+一类文件 *.so 可以忽略掉 所有.so结尾的文件
+!b.so 表示不排除此文件
+...
+
+
+
+如果不想忽略文件提交，强制添加：
+	git add -f 文件名 这样就可以强制添加
+	一般是不会破坏.gitinore文件的规则的。
+
+
+git check-ignore -v d.so
+	可以查看对应文件为什么被忽略了。查看的是对应的.gitinore文件内的忽略对应行。
+
+
+
+------------------------配置命名别名。
+特殊的Git配置。
+
+比如想要git status 让 git st进行设置简化
+git config --global alias.st status
+	global全局生效   alias点后是要起的别名 后面是要配置的名字
+
+适用场景：git log --pretty=oneline --abbrev-commit
+	漂亮的一行日志+短的commit-id
+可以给长命令起别名：
+	git config --global alias.lpa 'log --pretty=oneline --abbrev-commit'
+	此时就可以让 lpa代替 log --pretty=oneline --abbrev-commit的作用。
+
+初期学习建议多敲长命令。
+
+
+
+
+	
+
+
+
+
+
+
+
+
+
+
+
