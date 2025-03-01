@@ -199,9 +199,11 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 * 当要寻找第三方cmake中的相关文件，即后续使用findpackage找包时，需要list ADDEND到里面去  
 ```cmake
 list(APPEND CMAKE_MODULE_PATH "../cmake")
+list(APPEND CMAKE_PREFIX_PATH "../cmake") # ？
 ```
 
-#### find_package  
+#### find_package
+
 * 找三方的cmake文件用来添加对应的依赖,REQUIRED设置必须find到才能进行下一步  
 * 后续需要进行links，别忘记了  
 ```cmake
