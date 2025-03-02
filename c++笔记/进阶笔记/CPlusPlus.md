@@ -859,3 +859,154 @@ public:
 * 资源前置，能提前算好的就在构建机上完成。达成效果：构建时间增加，运行时间减少
 * 模板只能是编译期就能决定的事情
 * 倾向于构建效率换取运行效率(前置优化)
+
+## C++模板函数&模板全局常量
+* 模板参数: 类型参数(typename/class) 非类型参数(具体类型, 比如 int N)
+* ``template <>`` 模板的特化，模板参数具体的写出来
+* 模板全局常量
+```c++
+	template<xxx>
+	constexpr static xxx...
+```
+
+## C++模板元编程 - 模板类与类型萃取  
+* 通过模板类进行类型萃取  
+> 通过在模板类里进行using type, 针对特殊的类型可以单独特化  
+> 后续使用的时候使用此工具模板类中的type->处理后的类型进行处理 
+> 小例子: 编写个模板函数，在传参过程中, 对于基础类型(int double char)以及指针类型进行**值拷贝**, 对于自定义类型进行**const T&**    
+```c++
+// 例子: 实现一个模板函数, 对基础类型值拷贝, 对自定义类型引用传递
+
+// 类型定义模板类
+template <typename T>
+struct ArgsType
+{
+    using type = const T&;
+};
+// 指针类型
+template <typename T>
+struct ArgsType<T*>
+{
+    using type = T*;
+};
+// int
+template <>
+struct ArgsType<int>
+{
+    using type = int;
+};
+// double
+template <>
+struct ArgsType<double>
+{
+    using type = double;
+};
+// char
+template <>
+struct ArgsType<char>
+{
+    using type = char;
+};
+// 模板类型定义
+template <typename T>
+using type_t = typename ArgsType<T>::type;
+
+template <typename T>
+void Func(type_t<T> arg)
+{
+    fmt::println("{}", boost::typeindex::type_id_with_cvr<type_t<T>>().pretty_name());
+}
+```
+
+* 注意在模板类中引用其中的公开类属性或者公开类型时，需要使用到``typename``来标识此引用是类型还是属性(解决二义性问题)  
+* 除开之前的全特化外，还有一种偏特化，偏特化并没有像全特化那样直接固定类型，而还是模板，只不过在之前的原始模板基础上，对类型的范围做了一定的限制。比如之前例子中的指针类型的偏特化  
+* 使用模板类型定义将之前用于类型处理的模板类封装一下，方便需要对类型进行处理的相关方法使用
+> ``template<typename T> using type_t = typename xxx<T>::type;``  
+
+## C++模板元编程 - Substitution Failure Is Not An Error(SFINAE)
+* 例子和上一个模块类似，但是现在不利用之前的偏特化进行解决
+* 简单例子: 对于小于指针大小的类型采用值传递，其他采用引用传递
+* **enable_if**
+```c++
+	template<bool Cond, typename T>
+	struct enable_if {};
+
+	template<typename T>
+	struct enable_if<true, T> {
+		using type = T;
+	};
+```
+
+* C++模板匹配失败(Substitution Failure) 不会立刻结束，而是会去找其他的实现  
+* C++模板会努力去匹配，直到所有都匹配失败
+* 为了可读性，一般会为模板类中的类型定义一个模板类型(模板下直接using)，和一个模板的全局变量  
+
+```c++
+// 例子: 实现一个模板函数, 对基小于指针大小进行值拷贝, 否则进行引用
+template <bool Cond, typename T>
+using type_t = typename enable_if<Cond, T>::type;
+
+template <typename T>
+constexpr bool isLess_v = sizeof(T) <= sizeof(void*);
+
+template <typename T>
+constexpr bool isGreater_v = !isLess_v<T>;
+
+template <typename T>
+void Func(type_t<isLess_v<T>, T> t)
+{
+    fmt::println("值拷贝");
+}
+
+template <typename T>
+void Func(const type_t<isGreater_v<T>, T>& t)
+{
+    fmt::println("引用传递");
+}
+```
+
+## C++模板元编程 - 变参模板
+* 一组相同类型的模板参数``**<typename... Args>**``
+* 变参的展开方式:
+  1. 直接展开``const T& t, Args... args`` -> 用逗号展开
+  2. 嵌套展开``const T& t, const Args &... args`` -> 先嵌套, 后用逗号展开
+  3. 按照自定义运算符展开 (折叠表达式)  
+* 原理：在模板进行实例化的时候进行了递归  
+
+## C++模板元编程 - 折叠表达式
+* 之前的逗号展开，实际上相当于是一个一个传入进去依次匹配前面的。在自定义运算符展开的目的是定义一个二元运算符，让参数包内的每个参数使用此运算符计算从而达成展开的效果  
+* 展开类型: 一元展开(展开过程中只使用了变参本身) 二元展开(使用了别的参数) ->只能使用二元运算符进行展开
+* 对于使用二元运算符，存在两种展开方向(一元展开)  
+  * 从左往右展开 -> ``(... - args)``
+  * 从右往左展开 -> ``(args - ...)``
+> 对于上述展开，对于 1 2 3 4变参的传入, 可以理解为如下:
+> 从左往右展开： ((1 - 2) - 3) - 4 = -8
+> 从右往左展开： 1 - (2 - (3 - 4)) = -2
+
+* 二元展开, 实际上就是除了变参参数以外还引入了额外的参数，比如我连续将变参打印出来
+  * ``(std::cout << ... << args) << std::endl;`` 
+
+
+## C++模板元编程 - 类型限定与萃取
+* 类型限定很重要，方便我们后续合法参数判断  
+* C++20提供了一套参数限定(concept)  
+* C++17以前需要使用SFINAE
+* 例子: 要求函数传入的类型必须实现method()函数  
+  * 思路：构造一个T类型的对象，调用对应的方法，可以正常调用就可以匹配了
+  * 注意, 实在编译期(模板实例化期间)调用的  
+  * 不能直接构造T对象(因为必须存在无参构造), 只需要将空指针转换为对应类型，然后调用方法就完事
+    * ``decltype(static_cast<T*>(nullptr)->xxx)``
+    * 标准库存在对应的方法 : ``std::declval<T>().xxx``  
+    * 只能用作类型推导使用
+    * 注意当同一个函数可以，但是类型返回不同时该如何去做？
+      * 可以直接将任意类型映射为一种类型, 然后去比较此类型即可(一般类型设置为void即可) -> ``std::void_t<xxx>``  
+      * std::is_void_v 可以直接将类型和void类型进行比较
+    * 如果出现传入指针和引用，判断可能会存在误差，所以需要将类型擦除变成原本的类型(类型萃取一下即可->偏特化去匹配)
+      * std::remove_reference_t<xxx>  
+
+* 需要用到 ``std::enable_if_t -> typename std::enable_if::type`` 和 ``std::is_same_v<type, type>``  
+  * 对于函数返回值类型 -> ``decltype(xxx)``  
+
+* ``is_same_v`` 原理
+  * 实际上很简单就是通过偏特化 判断两个模板参数是否一致，然后设置里面的常数变量为true or false即可
+
