@@ -1010,3 +1010,64 @@ void Func(const type_t<isGreater_v<T>, T>& t)
 * ``is_same_v`` 原理
   * 实际上很简单就是通过偏特化 判断两个模板参数是否一致，然后设置里面的常数变量为true or false即可
 
+```c++
+// 例子: 实现一个传参限制实现函数print的对象
+template <typename T1, typename T2>
+struct IsSame
+{
+    constexpr static bool value = false;
+};
+
+template <typename T>
+struct IsSame<T, T>
+{
+    constexpr static bool value = true;
+};
+
+// std::is_same_v
+template <typename T1, typename T2>
+constexpr static bool IsSameV = IsSame<T1, T2>::value;
+
+// std::is_void_v
+template <typename T>
+constexpr static bool IsVoidV = IsSame<T, void>::value;
+
+// 将任意类型映射为void类型 std::void_t
+template <typename T>
+using VoidT = void;
+
+// 类型擦除
+template <typename T>
+struct RemoveReference
+{
+    using type = T;
+};
+template <typename T>
+struct RemoveReference<T&>
+{
+    using type = T;
+};
+template <typename T>
+struct RemoveReference<const T&>
+{
+    using type = T;
+};
+template <typename T>
+struct RemoveReference<T&&>
+{
+    using type = T;
+};
+template <typename T>
+struct RemoveReference<T*>
+{
+    using type = T;
+};
+// std::remove_reference_t
+template <typename T>
+using RemoveReferenceT = typename RemoveReference<T>::type;
+
+template <typename T>
+void func(std::enable_if_t<IsVoidV<VoidT<decltype(std::declval<RemoveReferenceT<T>>().print())>>, T> t)
+{
+}
+```
