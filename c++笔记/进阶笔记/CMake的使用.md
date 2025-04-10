@@ -256,6 +256,14 @@ PUBLIC
 "${CMAKE_SOURCE_DIR}/include"
 )
 ```
+#### target_link_directories
+* 为后续的链接动静态库指定库目录位置
+```cmake
+target_link_directories(target
+PRIVATE
+path
+)
+```
 
 #### target_link_libraries  
 * 链接动静态库  
