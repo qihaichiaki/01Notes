@@ -22,6 +22,7 @@
   2. 绘制流程：loadimage -> putimage
 
 ## SDL
+* 窗口和输入相关
 ### SDL_Init
 * 传入flag，来初始化子系统
 * SDL_INIT_EVERYTHING - 初始化全部的子系统
@@ -118,12 +119,12 @@ SDL_RenderClear(renderer);
 ### IMG_Quit
 
 ## 事件
+### 处理事件-SDL_PollEvent
 ### SDL_Event
 * SDL_Event为事件结构体
 #### 消息类型Type
 * 各种消息事件
-### 处理事件-SDL_PollEvent
-
+* ``SDL_QUIT`` 窗口退出
 
 ## 音频
 ### 初始化-Mix_Init
