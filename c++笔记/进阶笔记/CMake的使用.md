@@ -242,6 +242,14 @@ ${DIR_SRCS}
 )
 ```
 
+##### INTERFACE扩展使用
+* 可以在类似thirdParty下编写config.cmake，将外部依赖整合在一个cmake文件内，使用INTERFACE标记为依赖，外部使用时只需要target_link_xxx中包含即可
+* 声明被依赖库：``add_library(name INTERFACE)``  
+* 添加头文件 ``target_include_directories(name INTERFACE xxx)``
+* 添加库文件目录(lib/dll) ``target_link_directories(name INTERFACE xxx)``
+* 链接库文件libxxx ``target_link_libraries(name INTERFACE xxx)``
+* 补充：``${CMAKE_CURRENT_LIST_DIR}`` 表示当前.camke的路径
+
 #### build_type  
 * cmake构建的时候可以指定构建类型。  
 * 常规下，在GNU cmake配置下或者说是单配置生成器，使用``CMAKE_BUILD_TYPE``即可进行指定，而在msvc cmake或者说是符合配置生成器，使用``CMAKE_CONFIGURATION_TYPES``即可指定(需要注意，复合时这个可以不需要指定，在最后``cmake --build build -config Release`` 即release构建选项)  
