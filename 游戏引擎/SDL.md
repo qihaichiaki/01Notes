@@ -182,6 +182,7 @@ Mix_FadeinMusic(Mix_Music*, loop, ms)
 ```c++
 TTF_RenderUTF8_Blended(TTF_Font*, text, color)
 ```
+### 释放字体 - TTF_CloseFont
 ### TTF_Quit
 
 

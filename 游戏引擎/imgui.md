@@ -49,5 +49,12 @@ SDL_RenderSetScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebuffer
 SDL_SetRenderDrawColor(renderer, (Uint8)(clear_color.x * 255), (Uint8)(clear_color.y * 255), (Uint8)(clear_color.z * 255), (Uint8)(clear_color.w * 255));  // 使用设置好的 clear_color 清屏。 可以是0， 0， 255
 SDL_RenderClear(renderer);
 ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);  // 调用 ImGui 的 SDL 渲染器进行绘制。
+// ImGui_ImplSDLRenderer_RenderDrawData(ImGui::GetDrawData())
 SDL_RenderPresent(renderer);  // 把最终结果呈现在窗口中。
 ```
+
+### 3. 释放资源
+- 注意一般按照栈弹出的方式释放，因为类似于函数栈帧的弹出
+- ``ImGui_ImplSDLRenderer2_Shutdown()``(有的版本可能没有2)
+- ``ImGui_ImplSDL2_Shutdown()``
+- ``ImGui::DestroyContext()``

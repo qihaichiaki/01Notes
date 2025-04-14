@@ -235,3 +235,23 @@
 ```bash
 	git push origin :origin/远程分支名  
 ```
+
+
+## 其他常用命令总结
+- git remote update origin --prune （git更新远程分支）
+- git fetch origin （将远程仓库更新到本地）
+- git fetch --prune (删除本地记录的远程仓库已经删除的分支)
+- git cherry-pick origin/api~7..origin/api
+> 选择远程 origin/api 分支的最新 7 次提交commit到当前分支上  
+> 或者使用git cherry-pick commit 单个单个将commitpick过来，建议先历史后新
+- 一般rebase后，需要git push --force强制推送，rebase中的squash 用来合并提交
+- git checkout -b <new-branch-name> origin/branch 将远程分支拉下来本地新建分支 
+- git merge --abort 用于git pull 合并冲突时中止解决冲突，回到之前的状态。
+- git rebase --abort 适合终止 rebase的相关命令
+- git commit --amend 修改最近一次的提交信息，将本地应用到上一次的commit
+- git clone -b <branch_name> <repository_url> clone仓库的其他分支
+- git 配置代理服务器：git config --global https.proxy "http://<代理服务器url>"
+- git 取消配置全局代理服务器 git config --global --unset https.proxy
+- 查看当前项目下的子模块 `git submodule`(如果第一个字符是`-`那么说明没有初始化(本地和远程仓库并没有连接上))
+- 初始化/更新项目子模块 `git submodule update --init`
+- `git reset --hard origin/main` 强制更新为远程分支
