@@ -145,7 +145,7 @@ Mix_Music*  = Mix_LoadMUS(path)
 ### 加载音效-Mix_LoadWAV
 ### 播放音效-Mix_PlayChannel
 ```c++
-    Mix_PlayChannel(int channel, Mix_WAV*)
+    Mix_PlayChannel(int channel, Mix_Chunk*)
 ```
 
 * channel 音效播放的通道, -1表示在所有通道中的第一个空闲的通道进行播放
