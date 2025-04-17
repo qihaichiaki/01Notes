@@ -303,3 +303,37 @@ add_test(
 	COMMAND ${PROJECT_NAME}
 )
 ```
+
+### windows+vscode尝试使用CMakePresets.json来构建配置
+```json
+{
+    "version": 3, // CMake Preset 文件格式版本
+    "configurePresets": [], // 配置阶段的预设（生成构建目录与缓存变量）
+    "buildPresets": [], // 构建阶段的预设（构建目标)
+    "testPresets": [] // 测试阶段的预设（执行 CTest）
+}
+```
+
+- configurePresets
+```json
+{
+	"name": "xxx", // 预设名字
+	"generator": "Visual Studio 17 2022"， // 构建器名, 以vs为例
+	"description": "",  // 描述配置
+	"cacheVariables": {}，  // Cmake缓存变量, 可以传递给CmakeLists.txt文件
+	"architecture": {
+		"value": "x64",  // 生成器的平台
+        "strategy": "external"  // 默认字段
+	},
+}
+```
+
+- buildPresets
+```json
+{
+	"name": "xxx", // 预设名字
+	"configurePreset": "xxx", // 关联的上述配置name
+	"configuration"： "Debug", // 多配置生成器传递--config
+}
+
+```
