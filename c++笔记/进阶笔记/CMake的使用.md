@@ -170,6 +170,7 @@ project(algotest
 * 使用set限制cxx版本，如果使用``CMAKE_CXX_STANDARD_REQUIRED`` 可以强制限制  
 ```cmake
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
 ```
 
 #### CMAKE_BUILD_TYPE  

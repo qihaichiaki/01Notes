@@ -10,6 +10,29 @@
 * SDL_mixer 音媒体
 * SDL_gfx 简单图元的绘制
 
+## SDL架构概述
+* 基础框架流程(SDL):
+> 初始化 创建窗口 创建渲染器 ...... 释放渲染器 释放窗口 退出
+
+* 显示图片(SDL-image):
+> 初始化 读取图片并创建纹理 绘制纹理 ...... 释放纹理 退出
+
+* 播放音频(SDL-mixer)
+> 初始化 打开音频设备 读取音频 播放音频设备 ...... 释放音频 关闭音频设备 退出
+
+* 显示文字
+> 初始化 载入ttf字体 根据字体创建纹理 绘制纹理 ...... 释放纹理 释放字体 退出
+
+* 绘制流程:
+> AB两份，A展示时，B提前预备绘制，随后切换，AB同理.
+
+* SDL的架构设计:
+1. SDL Core：提供基本的窗口管理、事件处理和渲染功能
+2. SDL_image：扩展库，用于加载多种格式的图像文件
+3. SDL_mixer：扩展库，用于音效和音乐播放
+4. SDL_ttf：扩展库，用于字体渲染
+5. SDL_net：扩展库，提供网络功能
+
 ## EasyX->SDL
 ### 绘制区别
 * SDL
@@ -26,6 +49,8 @@
 ### SDL_Init
 * 传入flag，来初始化子系统
 * SDL_INIT_EVERYTHING - 初始化全部的子系统
+  * 视频、音频、计时器等
+* 初始化失败会返回非0值
 ### SDL_MAIN_HANDLED
 * 在引入SDL.h头文件前定义其宏，可以使用原本的main函数
 ### SDL_Quit
@@ -34,6 +59,7 @@
 ### 初始化-IMG_Init
 * 传入flag进行格式的支持
 * IMG_INIT_JPG | IMG_INIT_PNG
+* 初始化成功会返回对应设置的flags
 ### 加载图像为surface IMG_Load
 ```c++
   SDL_Surface* surfImg = IMG_Load(path)
@@ -92,7 +118,7 @@ SDL_Window* window = SDL_CreateWindow(title, x, y, w, h, flags)
 ```
 
 * utf-8 窗口标题（在C++中可以指定u8"xxx"设置）
-* x、y可以自己设置或者设置宏WINDOWS_CENTERED/UNDEFINED 中心或系统分配
+* x、y可以自己设置或者设置宏SDL_WINDOWPOS_CENTERED/SDL_WINDOWPOS_UNDEFINED 中心或系统分配
 * w、h宽高
 * 标志存在全屏标志/后端标志位/窗口是否隐藏/窗口无边框/最大最小化/SDL_WINDOW_SHOWN - 显示即可
 ### SDL_DestroyWindow
@@ -122,9 +148,34 @@ SDL_RenderClear(renderer);
 ### 处理事件-SDL_PollEvent
 ### SDL_Event
 * SDL_Event为事件结构体
+* 结构定义如下:
+```c++
+typedef union SDL_Event {
+    Uint32 type;                // 事件类型
+    SDL_WindowEvent window;     // 窗口事件
+    SDL_KeyboardEvent key;      // 键盘事件
+    SDL_MouseMotionEvent motion; // 鼠标移动事件
+    SDL_MouseButtonEvent button; // 鼠标按钮事件
+    SDL_MouseWheelEvent wheel;   // 鼠标滚轮事件
+    // ... 其他事件类型
+} SDL_Event;
+```
 #### 消息类型Type
-* 各种消息事件
-* ``SDL_QUIT`` 窗口退出
+* 下面是常见的事件类型:
+
+| 事件枚举                              | 描述                  |
+| ------------------------------------- | --------------------- |
+| SDL_QUIT                              | 当前用户关闭窗口      |
+| SDL_KEYDOWN/SDL_KEYUP                 | 鼠标按下/释放事件     |
+| SDL_MOUSEMOTION                       | 鼠标移动事件          |
+| SDL_MOUSEBUTTONDOWN/SDL_MOUSEBUTTONUP | 鼠标按键按下/释放事件 |
+| SDL_WINDOWEVENT                       | 窗口事件              |
+
+
+##### 状态查询
+* SDL_GetKeyboardState, 查询键盘的状态，适合平滑的移动控制
+  * 返回一个表示当前键盘状态的数组的指针, 数组中的每一个元素对应一个键, 键被按下, 值为1, 否则为0
+  * 一般index使用扫描码(SDL_SCANCODE_) 而不是键码, 扫描码是和物理键盘位置相关
 
 ## 音频
 ### 初始化-Mix_Init
