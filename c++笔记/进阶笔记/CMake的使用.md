@@ -196,6 +196,13 @@ file(GLOB_RECURSE DIR_SRCS "src/*.cpp")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 ```
 
+* 对于MSBUILD这种多配置器, 仅仅指示上面的，它会自动在底下生成对应config的文件夹，那么可以进一步的详细设置：
+```cmake
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${BUILD_PATH})  # exe 动态库
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE ${BUILD_PATH})	# lib 静态库
+    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${CONFIG} ${BUILD_PATH}) # 动态库?
+```
+
 #### CMAKE_MODULE_PATH  
 * 当要寻找第三方cmake中的相关文件，即后续使用findpackage找包时，需要list ADDEND到里面去  
 ```cmake

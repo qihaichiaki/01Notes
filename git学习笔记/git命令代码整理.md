@@ -236,6 +236,12 @@
 	git push origin :origin/远程分支名  
 ```
 
+## git子模块
+### git 添加子模块
+```bash
+git submodule add <GIT_URL> <存放路径>
+```
+
 
 ## 其他常用命令总结
 - git remote update origin --prune （git更新远程分支）
