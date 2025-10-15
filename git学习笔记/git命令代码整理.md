@@ -242,6 +242,11 @@
 git submodule add <GIT_URL> <存放路径>
 ```
 
+### git 初始化和更新子模块
+```bash
+git submodule update --init --recursive
+```
+
 
 ## 其他常用命令总结
 - git remote update origin --prune （git更新远程分支）
