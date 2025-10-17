@@ -191,6 +191,11 @@
 	git pull 远程仓库名 远程分支:本地分支  # 同理，pull本质是拉取+合并
 ```
 
+## 拉取远程仓库的一个分支到本地新分支
+```bash
+	git checkout -b <new-branch-name> origin/<branch-name>
+```
+
 ## git命令起别名  
 ```bash
 	git config [--global] alias.别名 '命令'  
