@@ -256,7 +256,8 @@ git submodule update --init --recursive
 ```bash
 git submodule deinit -f <当初添加submodule的路径>
 git rm -f <当初添加submodule的路径>
-rm -rf .git/modules/<当初添加submodule的路径> -> 删除本地缓存，防止后续添加重名的仓库冲突
+rm -rf .git/modules/<当初添加submodule的路径> # -> 删除本地缓存，防止后续添加重名的仓库冲突
+# windows下时 rm -r -fo xxx
 ```
 
 
