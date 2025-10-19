@@ -252,6 +252,13 @@ git submodule add <GIT_URL> <存放路径>
 git submodule update --init --recursive
 ```
 
+### git 删除子模块
+```bash
+git submodule deinit -f <当初添加submodule的路径>
+git rm -f <当初添加submodule的路径>
+rm -rf .git/modules/<当初添加submodule的路径> -> 删除本地缓存，防止后续添加重名的仓库冲突
+```
+
 
 ## 其他常用命令总结
 - git remote update origin --prune （git更新远程分支）
